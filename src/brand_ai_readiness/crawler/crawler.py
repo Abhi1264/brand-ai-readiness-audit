@@ -20,6 +20,7 @@ from brand_ai_readiness.analysis.html import (
     word_count,
 )
 from brand_ai_readiness.config import AuditBudget
+from brand_ai_readiness.crawler.access_probe import probe_access
 from brand_ai_readiness.crawler.fetcher import decode_body, fetch_bytes
 from brand_ai_readiness.crawler.priority import classify_role, url_priority
 from brand_ai_readiness.crawler.robots import RobotsPolicy, empty_robots, parse_robots
@@ -37,6 +38,7 @@ from brand_ai_readiness.crawler.urls import (
     site_label,
 )
 from brand_ai_readiness.models.snapshot import (
+    AccessProbeResult,
     CrawlSnapshot,
     CrawlStats,
     FetchedPage,
@@ -69,6 +71,8 @@ class BoundedCrawler:
         self.blocked: list[str] = []
         self.robots_policy: RobotsPolicy = empty_robots(self.start_url)
         self.sitemap = SitemapInfo()
+        self.access_probes: list[AccessProbeResult] = []
+        self.access_probe_status: str = "skipped"
 
     def _allowed_host(self, url: str) -> bool:
         if same_origin(url, self.start_url):
@@ -220,6 +224,26 @@ class BoundedCrawler:
             heading_count=heading_count,
         )
 
+    async def _run_access_probe(self, client: httpx.AsyncClient) -> None:
+        """Measure who the origin actually serves. Never blocks the audit."""
+        try:
+            self.access_probes = await probe_access(
+                client, self.start_url, self.budget, self.robots_policy
+            )
+        except Exception as exc:  # noqa: BLE001 — a probe failure must not abort the crawl
+            logger.info("access probe unavailable: %s", exc)
+            self.access_probes = []
+        if not self.access_probes:
+            self.access_probe_status = "unavailable"
+            return
+        browser = next((p for p in self.access_probes if not p.is_ai_crawler), None)
+        ai = [p for p in self.access_probes if p.is_ai_crawler]
+        # Without a usable browser baseline there is nothing to compare against.
+        if browser is None or browser.status_code == 0 or not ai:
+            self.access_probe_status = "partial"
+        else:
+            self.access_probe_status = "complete"
+
     async def crawl(self, *, seed: bool = True, discover_sitemaps: bool = True) -> CrawlSnapshot:
         if seed:
             self.enqueue(self.start_url)
@@ -239,6 +263,8 @@ class BoundedCrawler:
             max_redirects=self.budget.max_redirects,
         ) as client:
             await self._load_robots(client)
+            if self.budget.enable_access_probe and seed:
+                await self._run_access_probe(client)
             if discover_sitemaps:
                 await self._load_sitemaps(client)
             sem = asyncio.Semaphore(self.budget.max_concurrency)
@@ -293,6 +319,8 @@ class BoundedCrawler:
             robots=self.robots_policy.info,
             sitemap=self.sitemap,
             stats=stats,
+            access_probes=self.access_probes,
+            access_probe_status=self.access_probe_status,  # type: ignore[arg-type]
         )
 
 

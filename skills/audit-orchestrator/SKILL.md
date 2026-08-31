@@ -1,6 +1,6 @@
 ---
 name: audit-orchestrator
-description: Compose crawl, structured-data, freshness/entity, and engagement audits into one validated report of AI-discoverability and on-site-engagement findings. Use when asked to audit a website URL, diagnose why a brand is missing or misrepresented in AI assistants, or produce prioritized fix recommendations. Recommend-only; never modify the live site.
+description: Compose crawl, AI-crawler access, structured-data, freshness/entity, and engagement audits into one validated report of AI-discoverability and on-site-engagement findings. Use when asked to audit a website URL, diagnose why a brand is missing or misrepresented in AI assistants, or produce prioritized fix recommendations. Recommend-only; never modify the live site.
 license: MIT
 compatibility: Requires Python 3.11+ and network GET/HEAD access to the target origin. Playwright optional. No API key required.
 metadata:
@@ -30,7 +30,7 @@ This skill is the marketplace entrypoint. It composes the other four skills. It 
 
 1. Confirm the request is recommend-only. Never POST/PUT/PATCH/DELETE, never submit forms, never log in, never bypass robots.txt.
 2. Run the shared crawler once (`skills/audit-orchestrator/scripts/run_audit.py <url>` or `python -m brand_ai_readiness <url>`). The crawler is implemented by crawl-render-audit and reused.
-3. Let crawl-render-audit produce reachability, robots, HTTP, canonical, raw-vs-rendered, and machine-readability evidence.
+3. Let crawl-render-audit produce reachability, robots, AI-crawler access (what the origin serves GPTBot/ClaudeBot/PerplexityBot vs a browser), HTTP, canonical, raw-vs-rendered, and machine-readability evidence.
 4. Let structured-data-audit infer site type and compare JSON-LD / Open Graph to visible content.
 5. Let freshness-entity-audit extract entities, claims, and freshness signals. If external search is not available, set `corroboration_status=unavailable` and do not invent corroboration.
 6. Let engagement-audit evaluate homepage orientation, navigation, continuation, dead ends, and measurable mobile issues.

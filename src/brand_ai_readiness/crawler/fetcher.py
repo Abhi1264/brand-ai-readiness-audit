@@ -37,6 +37,7 @@ async def fetch_bytes(
     url: str,
     budget: AuditBudget,
     method: str = "GET",
+    headers: dict[str, str] | None = None,
 ) -> FetchResult:
     _guard_method(method)
     last_error: str | None = None
@@ -48,6 +49,7 @@ async def fetch_bytes(
                 url,
                 follow_redirects=True,
                 timeout=budget.request_timeout_s,
+                headers=headers,
             )
             content_type = response.headers.get("content-type", "")
             body = response.content[: budget.max_response_bytes]

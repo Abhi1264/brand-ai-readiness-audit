@@ -18,10 +18,18 @@ class RobotsPolicy:
         self.user_agent = user_agent
 
     def allows(self, url: str) -> bool:
+        return self.allows_for(self.user_agent, url)
+
+    def allows_for(self, user_agent: str, url: str) -> bool:
+        """Robots verdict for an arbitrary agent token (e.g. "GPTBot").
+
+        Used by the access probe to compare the declared robots policy against
+        what the origin actually serves each identity.
+        """
         if self._parser is None:
             return True
         try:
-            return bool(self._parser.can_fetch(self.user_agent, url))
+            return bool(self._parser.can_fetch(user_agent, url))
         except Exception as exc:  # noqa: BLE001 — malformed robots must not crash audit
             logger.warning("robots check failed for %s: %s", url, exc)
             return True

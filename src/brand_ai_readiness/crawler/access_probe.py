@@ -1,0 +1,114 @@
+"""Diagnostic access probe: does the origin serve AI crawlers what it serves a browser?
+
+robots.txt is a *request* that a crawler chooses to honor. Edge policy (WAF, CDN,
+bot management) is *enforcement* that happens before content is served. The two
+are configured independently and can disagree, so parsing robots.txt alone cannot
+tell you whether an AI assistant can actually reach a page.
+
+This module issues one bounded request per identity against a single URL and
+records what came back. It never uses a probe identity to retrieve content the
+audit's own user-agent was denied — a block is recorded as a finding, not
+circumvented.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+
+import httpx
+
+from brand_ai_readiness.config import (
+    AI_CRAWLER_PROBE_AGENTS,
+    BROWSER_PROBE_AGENT,
+    AuditBudget,
+)
+from brand_ai_readiness.crawler.fetcher import fetch_bytes
+from brand_ai_readiness.crawler.robots import RobotsPolicy
+from brand_ai_readiness.models.snapshot import AccessProbeResult
+
+logger = logging.getLogger(__name__)
+
+# Status codes that mean "this origin does not answer HEAD", not "you are blocked".
+_HEAD_UNSUPPORTED = {400, 405, 501}
+
+
+async def _probe_one(
+    client: httpx.AsyncClient,
+    url: str,
+    budget: AuditBudget,
+    agent: str,
+    user_agent: str,
+    *,
+    is_ai_crawler: bool,
+    robots_allows: bool,
+) -> AccessProbeResult:
+    headers = {"User-Agent": user_agent}
+    method = "HEAD"
+    result = await fetch_bytes(client, url, budget, method="HEAD", headers=headers)
+    # Some origins do not implement HEAD; that is not a block signal.
+    if result.status_code in _HEAD_UNSUPPORTED or (result.status_code == 0 and result.error):
+        method = "GET"
+        result = await fetch_bytes(client, url, budget, method="GET", headers=headers)
+    return AccessProbeResult(
+        agent=agent,
+        user_agent=user_agent,
+        is_ai_crawler=is_ai_crawler,
+        status_code=result.status_code,
+        method=method,
+        body_bytes=len(result.body),
+        error=result.error,
+        robots_allows=robots_allows,
+    )
+
+
+async def probe_access(
+    client: httpx.AsyncClient,
+    url: str,
+    budget: AuditBudget,
+    robots_policy: RobotsPolicy | None = None,
+) -> list[AccessProbeResult]:
+    """Fetch `url` once per identity and return what each was served.
+
+    Deliberately not gated on robots.txt: a site that disallows the audit's own
+    user-agent would otherwise yield no probe data at all, which is exactly the
+    signal being measured. One URL, one request per agent.
+    """
+
+    def _robots_verdict(agent_token: str) -> bool:
+        if robots_policy is None:
+            return True
+        return robots_policy.allows_for(agent_token, url)
+
+    jobs = [
+        _probe_one(
+            client,
+            url,
+            budget,
+            "browser",
+            BROWSER_PROBE_AGENT,
+            is_ai_crawler=False,
+            robots_allows=True,
+        )
+    ]
+    jobs += [
+        _probe_one(
+            client,
+            url,
+            budget,
+            agent,
+            user_agent,
+            is_ai_crawler=True,
+            robots_allows=_robots_verdict(agent),
+        )
+        for agent, user_agent in AI_CRAWLER_PROBE_AGENTS.items()
+    ]
+
+    results = await asyncio.gather(*jobs, return_exceptions=True)
+    probes: list[AccessProbeResult] = []
+    for item in results:
+        if isinstance(item, BaseException):
+            logger.warning("access probe failed: %s", item)
+            continue
+        probes.append(item)
+    return probes

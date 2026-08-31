@@ -8,6 +8,27 @@ DEFAULT_USER_AGENT = (
     "brand-ai-readiness-audit; recommend-only; read-only)"
 )
 
+# Diagnostic identities used only by the access probe (crawler/access_probe.py).
+# The probe measures who the origin lets in; it never uses these to retrieve
+# content that the honest audit user-agent was denied.
+BROWSER_PROBE_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+AI_CRAWLER_PROBE_AGENTS: dict[str, str] = {
+    "GPTBot": (
+        "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; "
+        "GPTBot/1.1; +https://openai.com/gptbot"
+    ),
+    "ClaudeBot": "Mozilla/5.0 (compatible; ClaudeBot/1.0; +claudebot@anthropic.com)",
+    "PerplexityBot": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko); compatible; PerplexityBot/1.0; "
+        "+https://perplexity.ai/perplexitybot"
+    ),
+}
+
 SAFE_METHODS = frozenset({"GET", "HEAD"})
 
 TRACKING_QUERY_PARAMS = frozenset(
@@ -45,6 +66,7 @@ class AuditBudget:
     mobile_viewport: tuple[int, int] = (390, 844)
     enable_render: bool = True
     enable_llm_polish: bool = False
+    enable_access_probe: bool = True
     user_agent: str = DEFAULT_USER_AGENT
     extra_allowed_hosts: tuple[str, ...] = field(default_factory=tuple)
 

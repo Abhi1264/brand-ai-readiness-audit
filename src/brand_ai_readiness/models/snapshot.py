@@ -82,6 +82,26 @@ class RobotsInfo(BaseModel):
     parse_error: str | None = None
 
 
+class AccessProbeResult(BaseModel):
+    """One diagnostic request to the same URL under a named identity.
+
+    Used to compare what a browser is served against what a named AI crawler is
+    served. Read-only, one URL, one request per agent.
+    """
+
+    agent: str
+    user_agent: str
+    is_ai_crawler: bool = False
+    status_code: int = 0
+    method: str = "HEAD"
+    body_bytes: int = 0
+    error: str | None = None
+    robots_allows: bool = True
+
+    def reachable(self) -> bool:
+        return 200 <= self.status_code < 400
+
+
 class SitemapInfo(BaseModel):
     discovered: list[str] = Field(default_factory=list)
     accessible: bool = False
@@ -140,6 +160,17 @@ class CrawlSnapshot(BaseModel):
     entities: list[EntityRecord] = Field(default_factory=list)
     structured: list[StructuredBlock] = Field(default_factory=list)
     corroboration_status: Literal["unavailable", "partial", "complete"] = "unavailable"
+    access_probes: list[AccessProbeResult] = Field(default_factory=list)
+    access_probe_status: Literal["complete", "partial", "unavailable", "skipped"] = "skipped"
+
+    def browser_probe(self) -> AccessProbeResult | None:
+        for probe in self.access_probes:
+            if not probe.is_ai_crawler:
+                return probe
+        return None
+
+    def ai_probes(self) -> list[AccessProbeResult]:
+        return [probe for probe in self.access_probes if probe.is_ai_crawler]
 
     def successful_pages(self) -> list[FetchedPage]:
         return [page for page in self.pages if page.fetch_status == "success" and page.html]

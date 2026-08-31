@@ -8,12 +8,151 @@ from brand_ai_readiness.models.snapshot import CrawlSnapshot
 from brand_ai_readiness.rendering.compare import compare_raw_and_rendered
 
 
+def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool) -> list[Finding]:
+    """Compare declared robots policy against what the origin actually serves.
+
+    Only a *status* divergence triggers a finding. Body-length differences alone
+    are not evidence of bot policy — personalization, A/B tests, geo variants and
+    cookie walls all move body size — so length is recorded as supporting metrics
+    and never as the trigger.
+    """
+    if snapshot.access_probe_status != "complete":
+        return []
+    browser = snapshot.browser_probe()
+    ai_probes = snapshot.ai_probes()
+    # Without a browser baseline that succeeded there is nothing to compare
+    # against: an origin that refuses everyone (paywall, geo-block, auth wall)
+    # is not an AI-crawler policy problem.
+    if browser is None or not browser.reachable() or not ai_probes:
+        return []
+
+    blocked = [probe for probe in ai_probes if probe.status_code >= 400]
+    if not blocked:
+        return []
+
+    contradicted = [probe for probe in blocked if probe.robots_allows]
+    consistent = [probe for probe in blocked if not probe.robots_allows]
+    metrics = {
+        "browser_status": browser.status_code,
+        "browser_bytes": browser.body_bytes,
+        "probe_url": snapshot.start_url,
+        "by_agent": {
+            probe.agent: {
+                "status": probe.status_code,
+                "method": probe.method,
+                "bytes": probe.body_bytes,
+                "robots_allows": probe.robots_allows,
+            }
+            for probe in ai_probes
+        },
+    }
+
+    findings: list[Finding] = []
+    if contradicted:
+        names = ", ".join(probe.agent for probe in contradicted)
+        findings.append(
+            make_finding(
+                id="CR-010",
+                category="crawlability",
+                title="Server blocks AI crawlers that robots.txt permits",
+                mechanism_code="ai_crawler_edge_blocked",
+                mechanism=(
+                    "robots.txt is a request a crawler honors; the CDN/WAF decides what is "
+                    "actually served. Here the two disagree: robots.txt allows these agents "
+                    "but the origin refuses them by user-agent."
+                ),
+                impact=(
+                    "Assistants using these crawlers never receive the page, so the brand "
+                    "cannot be cited from it — and robots.txt gives no indication anything "
+                    "is wrong."
+                ),
+                observation=(
+                    f"{snapshot.start_url} returned {browser.status_code} to a browser "
+                    f"user-agent but {', '.join(f'{p.status_code} to {p.agent}' for p in contradicted)}. "
+                    f"robots.txt permits {names}."
+                ),
+                source_urls=[snapshot.start_url],
+                metrics=metrics,
+                action_summary=(
+                    f"Allow {names} through the CDN/WAF bot rules, or remove the user-agent "
+                    "block, so the permission already stated in robots.txt is actually honored."
+                ),
+                action_details=(
+                    "Check bot-management settings (Cloudflare 'Block AI Bots'/'AI Scrapers', "
+                    "Akamai Bot Manager, or a server-level user-agent deny rule). Either allow "
+                    "these agents or, if exclusion is intended, state it in robots.txt so the "
+                    "policy is consistent and diagnosable."
+                ),
+                rationale=(
+                    "Flagged only because a browser user-agent succeeded on the same URL in "
+                    "the same run, and robots.txt does not disallow these agents."
+                ),
+                implementation_direction=(
+                    "Edge/WAF bot rules, then re-probe the homepage with the agent's "
+                    "user-agent string to confirm a 2xx."
+                ),
+                confidence=0.9,
+                scope_pages=1,
+                # Edge policy is origin-wide, not a property of the probed page.
+                scope_fraction=1.0,
+                impact_weight=4,
+            )
+        )
+
+    # Consistent exclusion (robots says no and the server enforces it) is a
+    # deliberate policy, not a defect. Report it once, and only when the robots
+    # finding has not already covered the same ground.
+    if consistent and not contradicted and not robots_already_flagged:
+        names = ", ".join(probe.agent for probe in consistent)
+        findings.append(
+            make_finding(
+                id="CR-011",
+                category="crawlability",
+                title="AI crawlers are excluded by both robots.txt and the server",
+                mechanism_code="ai_crawler_excluded_by_policy",
+                mechanism=(
+                    "robots.txt disallows these agents and the origin also refuses them at "
+                    "the edge. The exclusion is consistent and appears deliberate."
+                ),
+                impact=(
+                    "These assistants cannot retrieve the page, so the brand will not be "
+                    "cited from it regardless of how well the content is written."
+                ),
+                observation=(
+                    f"{snapshot.start_url} returned {browser.status_code} to a browser "
+                    f"user-agent and {', '.join(f'{p.status_code} to {p.agent}' for p in consistent)}. "
+                    f"robots.txt also disallows {names}."
+                ),
+                source_urls=[snapshot.start_url],
+                metrics=metrics,
+                action_summary=(
+                    f"Confirm that excluding {names} is intended; if it is not, remove the "
+                    "Disallow rules and the matching edge block."
+                ),
+                action_details=(
+                    "This is a business decision, not a bug. If the exclusion is deliberate "
+                    "(licensing, paywall), no change is needed and low AI visibility is the "
+                    "expected outcome. If it was inherited from a default bot-protection "
+                    "setting, both robots.txt and the WAF rule must be changed together."
+                ),
+                rationale="Reported as a policy observation because both layers agree.",
+                implementation_direction="robots.txt Disallow rules plus edge bot-management settings.",
+                confidence=0.9,
+                scope_pages=1,
+                scope_fraction=1.0,
+                impact_weight=2,
+            )
+        )
+    return findings
+
+
 def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     findings: list[Finding] = []
     pages = snapshot.pages
     success = snapshot.successful_pages()
     n = max(len(pages), 1)
 
+    robots_flagged = False
     blocked = [page for page in pages if page.robots_blocked]
     important_blocked = [page for page in blocked if page.role in {"homepage", "about", "product", "pricing", "contact"}]
     if important_blocked:
@@ -48,6 +187,9 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
                 impact_weight=4 if any(page.role == "homepage" for page in important_blocked) else 3,
             )
         )
+        robots_flagged = True
+
+    findings.extend(_access_probe_findings(snapshot, robots_flagged))
 
     failed_http = [
         page

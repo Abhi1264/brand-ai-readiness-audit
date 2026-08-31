@@ -8,7 +8,7 @@ A **single Agent Skill Marketplace** that takes `Audit https://example.com` and 
 It is **recommend-only**. Nothing in this marketplace modifies a live website.
 
 ```
-URL → crawl → robots/indexability → raw HTML → optional browser render
+URL → crawl → robots/indexability → AI-crawler access probe → raw HTML → optional browser render
     → structured data → entities/facts/freshness → engagement
     → deterministic evidence → severity/priority → validated JSON
 ```
@@ -20,7 +20,7 @@ The LLM is optional and never invents evidence. The default path is fully determ
 | Skill | Question it answers |
 | --- | --- |
 | **audit-orchestrator** (entrypoint) | How do we compose, dedupe, prioritize, and validate one report? |
-| **crawl-render-audit** | Can machines reach and read important content? |
+| **crawl-render-audit** | Can machines reach and read important content — and does the origin actually serve AI crawlers? |
 | **structured-data-audit** | Can machines understand the entities this site actually represents? |
 | **freshness-entity-audit** | Are facts consistent, disambiguated, and dated when they need to be? |
 | **engagement-audit** | Can a new visitor understand the site and take a next step? |
@@ -56,6 +56,7 @@ flowchart TD
 
 - Same-origin only (configurable)
 - Honor `robots.txt` — never circumvent
+- **AI-crawler access probe**: the start URL is fetched once as a browser and once each as GPTBot, ClaudeBot and PerplexityBot, and the statuses compared. robots.txt states a policy; the CDN/WAF enforces one, and they can disagree — a site can publish a permissive robots.txt and still 403 every AI crawler. Only a status divergence is reported; a probe identity is never used to retrieve content the audit's own user-agent was denied
 - Default budget: **40 pages**, **8 rendered pages**, 15s timeout, concurrency 4, 2MB body cap
 - Priority: homepage → sitemap → homepage links → about → product/service → pricing → contact → landings → articles
 - Playwright is optional. If browsers are missing, `rendering_status=unavailable` and the audit still completes
@@ -65,7 +66,7 @@ Typical audits target **under 5 minutes**.
 
 ## What we check
 
-**Discoverability:** robots that actually block audited URLs, HTTP failures, redirect loops, canonical conflicts, noindex on important pages, unusable sitemaps, broken internal links, raw-vs-rendered gaps, image/canvas-only facts, missing or conflicting JSON-LD/OG that fits the inferred site type.
+**Discoverability:** robots that actually block audited URLs, AI crawlers refused by the origin despite robots.txt permitting them (and the converse — deliberate exclusion, reported as a policy to confirm rather than a defect), HTTP failures, redirect loops, canonical conflicts, noindex on important pages, unusable sitemaps, broken internal links, raw-vs-rendered gaps, image/canvas-only facts, missing or conflicting JSON-LD/OG that fits the inferred site type.
 
 **Entities / freshness:** inconsistent official names, under-specified brand names, claims copied from visible text only, `dateModified` vs copyright year, stale *time-sensitive* pages. Missing dates are reported as “freshness cannot be established,” not “stale.” Corroboration is optional and defaults to `unavailable`.
 
@@ -91,6 +92,7 @@ Scores (`ai_discoverability_score`, `engagement_score`, `overall_score`) are wei
 - GET/HEAD only
 - No forms, logins, or authenticated areas
 - No robots.txt bypass
+- Probe identities are diagnostic only: a block is recorded as a finding, never worked around
 - Bounded concurrency, timeouts, response size
 - Portable: no external service is required to resolve the marketplace
 - No model weights, no secrets
@@ -133,7 +135,7 @@ pytest
 pytest -m live
 ```
 
-Synthetic sites live in `tests/fixtures/sites/` (excellent, robots-blocked, JS-only, missing/conflicting structured data, stale, ambiguous entity, image-only facts, broken nav, disco/engagement splits).
+Synthetic sites live in `tests/fixtures/sites/` (excellent, robots-blocked, JS-only, missing/conflicting structured data, stale, ambiguous entity, image-only facts, broken nav, disco/engagement splits, UA-gated origin).
 
 If `skills-ref` is installed:
 
