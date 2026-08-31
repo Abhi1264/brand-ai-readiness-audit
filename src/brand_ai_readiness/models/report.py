@@ -1,5 +1,3 @@
-"""Validated final audit report — contest-required floor plus extras."""
-
 from __future__ import annotations
 
 from datetime import datetime, timezone
@@ -37,8 +35,6 @@ class ProactiveRecommendation(BaseModel):
 
 
 class Scorecard(BaseModel):
-    """Observable-signal scores. Each component is documented in scoring/scorecard.py."""
-
     ai_discoverability_score: int = Field(ge=0, le=100)
     engagement_score: int = Field(ge=0, le=100)
     overall_score: int = Field(ge=0, le=100)

@@ -1,5 +1,3 @@
-"""Bounded same-origin crawler. GET/HEAD only. Respects robots.txt."""
-
 from __future__ import annotations
 
 import asyncio
@@ -264,7 +262,7 @@ class BoundedCrawler:
                     break
                 results = await asyncio.gather(*(worker(url) for url in batch), return_exceptions=True)
                 for result in results:
-                    if isinstance(result, Exception):
+                    if isinstance(result, BaseException):
                         logger.warning("page worker crashed: %s", result)
                         continue
                     self.pages.append(result)
@@ -308,7 +306,6 @@ async def crawl_additional(
     budget: AuditBudget,
     already_seen: set[str],
 ) -> list[FetchedPage]:
-    """Fetch extra same-origin URLs discovered after rendering, without recrawling seeds."""
     remaining = budget.max_pages - len(already_seen)
     if remaining <= 0 or not seeds:
         return []

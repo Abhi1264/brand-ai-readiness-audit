@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Extract Open Graph and meta description from HTML."""
 
 from __future__ import annotations
 

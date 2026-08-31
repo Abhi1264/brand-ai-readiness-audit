@@ -1,5 +1,3 @@
-"""Extract factual claims that actually appear in page text. Never fabricate."""
-
 from __future__ import annotations
 
 import re

@@ -1,5 +1,3 @@
-"""Judge-facing CLI: brand-audit URL [-o report.json]."""
-
 from __future__ import annotations
 
 import argparse

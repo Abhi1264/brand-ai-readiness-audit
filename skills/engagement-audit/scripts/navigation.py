@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Inspect homepage navigation labels in an HTML file."""
 
 from __future__ import annotations
 

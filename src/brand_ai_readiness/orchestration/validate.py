@@ -1,5 +1,3 @@
-"""Validate a report dict against the contest-required schema."""
-
 from __future__ import annotations
 
 from typing import Any

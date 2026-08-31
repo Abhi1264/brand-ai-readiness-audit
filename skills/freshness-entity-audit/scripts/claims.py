@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Extract claims from a crawl snapshot JSON file."""
 
 from __future__ import annotations
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Parse JSON-LD blocks from an HTML file."""
 
 from __future__ import annotations
 

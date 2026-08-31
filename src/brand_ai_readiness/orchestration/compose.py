@@ -1,5 +1,3 @@
-"""Entrypoint composition: crawl once, run analyzers, validate the report."""
-
 from __future__ import annotations
 
 import logging
@@ -160,7 +158,6 @@ async def run_audit(url: str, budget: AuditBudget | None = None) -> AuditReport:
 
 
 def report_from_snapshot(snapshot: CrawlSnapshot) -> AuditReport:
-    """Used by tests and skill scripts that already have a snapshot."""
     enrich_snapshot(snapshot)
     signals = analyze_engagement(snapshot)
     return build_report(snapshot, collect_skill_findings(snapshot, signals), signals)

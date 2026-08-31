@@ -1,5 +1,3 @@
-"""Infer what a site appears to represent from reusable signals only."""
-
 from __future__ import annotations
 
 import re

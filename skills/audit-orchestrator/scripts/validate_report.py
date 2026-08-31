@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Validate a report JSON file against the contest schema."""
 
 from __future__ import annotations
 

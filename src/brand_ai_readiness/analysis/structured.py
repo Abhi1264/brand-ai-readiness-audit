@@ -1,5 +1,3 @@
-"""JSON-LD, Open Graph, and visible-content consistency checks."""
-
 from __future__ import annotations
 
 import re
@@ -119,7 +117,6 @@ def malformed_jsonld_pages(snapshot: CrawlSnapshot) -> list[str]:
 
 
 def name_mismatches(page: FetchedPage, snapshot: CrawlSnapshot) -> list[tuple[str, str]]:
-    """Compare structured names to visible text. Conservative: only report clear mismatches."""
     mismatches: list[tuple[str, str]] = []
     visible = (page.text or "").lower()
     title = (page.title or "").lower()

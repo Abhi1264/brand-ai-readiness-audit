@@ -1,5 +1,3 @@
-"""Sort findings so the first items are the ones to fix first."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.models.findings import Finding

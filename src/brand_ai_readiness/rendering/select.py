@@ -1,5 +1,3 @@
-"""Choose a small representative set of pages to render."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage, PageRole

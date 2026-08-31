@@ -1,5 +1,3 @@
-"""Crawlability, robots, HTTP, canonical, and render-gap findings."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.finding_factory import make_finding

@@ -1,5 +1,3 @@
-"""Structured-data findings. Site-type aware; no generic 'add FAQ schema' spam."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.finding_factory import make_finding

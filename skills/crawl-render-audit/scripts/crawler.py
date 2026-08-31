@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Run the bounded crawler and print snapshot JSON (no findings)."""
 
 from __future__ import annotations
 

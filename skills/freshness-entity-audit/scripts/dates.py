@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Extract freshness signals from an HTML file."""
 
 from __future__ import annotations
 

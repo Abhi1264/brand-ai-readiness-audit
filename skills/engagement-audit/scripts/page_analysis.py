@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Homepage orientation signals from an HTML file."""
 
 from __future__ import annotations
 

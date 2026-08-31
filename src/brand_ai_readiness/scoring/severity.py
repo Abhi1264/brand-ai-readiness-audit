@@ -1,5 +1,3 @@
-"""Deterministic severity from impact, scope, and confidence."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.models.findings import Finding, Severity
@@ -8,11 +6,6 @@ RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
 
 
 def score_severity(impact_weight: int, scope_fraction: float, confidence: float) -> Severity:
-    """
-    impact_weight: 1 (minor) .. 4 (fundamental barrier)
-    scope_fraction: 0..1 share of relevant pages
-    confidence: 0..1 observational confidence
-    """
     scope = min(max(scope_fraction, 0.0), 1.0)
     conf = min(max(confidence, 0.0), 1.0)
     raw = impact_weight * 22 * (0.45 + 0.55 * scope) * (0.55 + 0.45 * conf)

@@ -1,5 +1,3 @@
-"""Internal finding model used by every skill analyzer."""
-
 from __future__ import annotations
 
 from typing import Any, Literal
@@ -41,8 +39,6 @@ class SuggestedAction(BaseModel):
 
 
 class Finding(BaseModel):
-    """Full internal finding. Public report fields are a projection of this."""
-
     id: str
     category: Category
     title: str
@@ -87,8 +83,6 @@ class Finding(BaseModel):
 
 
 class PublicFinding(BaseModel):
-    """Minimum required public finding plus useful extras."""
-
     id: str
     title: str
     severity: Severity

@@ -1,5 +1,3 @@
-"""On-site engagement signals: orientation, CTAs, paths, dead ends, mobile."""
-
 from __future__ import annotations
 
 import re
@@ -79,7 +77,6 @@ def nav_quality(page: FetchedPage) -> tuple[int, list[str]]:
 
 
 def dead_ends(snapshot: CrawlSnapshot) -> list[str]:
-    """Pages with almost no onward internal links, excluding legal/contact terminals."""
     flagged: list[str] = []
     for page in snapshot.successful_pages():
         if page.role in {"legal", "contact"}:
@@ -107,7 +104,6 @@ def broken_internal_links(snapshot: CrawlSnapshot) -> list[str]:
 
 
 def missing_continuation(snapshot: CrawlSnapshot) -> list[str]:
-    """Important landings that do not link toward an obvious next action."""
     present_roles = {page.role for page in snapshot.successful_pages()}
     missing: list[str] = []
     homepage = snapshot.homepage()

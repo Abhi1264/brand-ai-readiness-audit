@@ -1,5 +1,3 @@
-"""Engagement, orientation, continuation, and mobile findings."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.engagement import EngagementSignals, analyze_engagement

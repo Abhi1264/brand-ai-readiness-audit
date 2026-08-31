@@ -1,9 +1,3 @@
-"""Runtime budgets and safety defaults.
-
-All values are conservative so a typical audit finishes in well under 5 minutes
-and never mutates a target site.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -37,8 +31,6 @@ TRACKING_QUERY_PARAMS = frozenset(
 
 @dataclass(frozen=True)
 class AuditBudget:
-    """Configurable crawl / render / analysis limits."""
-
     max_pages: int = 40
     max_renders: int = 8
     request_timeout_s: float = 15.0

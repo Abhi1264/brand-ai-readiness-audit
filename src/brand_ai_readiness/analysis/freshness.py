@@ -1,5 +1,3 @@
-"""Freshness signals. Copyright year is not a modification date."""
-
 from __future__ import annotations
 
 import re

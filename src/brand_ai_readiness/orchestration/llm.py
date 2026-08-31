@@ -1,5 +1,3 @@
-"""Optional wording polish. Never invents evidence, severity, or counts."""
-
 from __future__ import annotations
 
 import json

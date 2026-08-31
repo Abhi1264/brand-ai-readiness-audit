@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Infer expected schema types for a site type label."""
 
 from __future__ import annotations
 

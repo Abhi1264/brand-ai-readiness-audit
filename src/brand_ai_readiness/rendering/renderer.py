@@ -1,5 +1,3 @@
-"""Optional Playwright renderer. Missing browsers do not fail the audit."""
-
 from __future__ import annotations
 
 import asyncio
@@ -142,7 +140,6 @@ def render_pages(
     pages: list[FetchedPage],
     budget: AuditBudget,
 ) -> tuple[list[RenderedPage], RenderingStatus]:
-    """Sync wrapper for skill scripts. Safe to call outside a running event loop."""
     return _run_sync(render_pages_async(pages, budget), "render_pages", "render_pages_async")
 
 

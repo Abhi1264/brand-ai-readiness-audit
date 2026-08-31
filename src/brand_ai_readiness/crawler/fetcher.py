@@ -1,5 +1,3 @@
-"""Read-only HTTP fetch with size, timeout, retry, and method guards."""
-
 from __future__ import annotations
 
 import logging
@@ -13,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class UnsafeMethodError(RuntimeError):
-    """Raised if anything tries a non-GET/HEAD request."""
+    pass
 
 
 @dataclass

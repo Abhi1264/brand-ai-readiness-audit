@@ -1,5 +1,3 @@
-"""Detect facts that appear to exist only in images, canvas, or embeds."""
-
 from __future__ import annotations
 
 import re

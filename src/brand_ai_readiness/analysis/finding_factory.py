@@ -1,5 +1,3 @@
-"""Shared constructor for evidence-backed findings."""
-
 from __future__ import annotations
 
 from typing import Any

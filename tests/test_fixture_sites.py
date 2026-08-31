@@ -1,5 +1,3 @@
-"""Each synthetic site should surface the problem it was built to represent."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.checks_crawl import crawl_findings

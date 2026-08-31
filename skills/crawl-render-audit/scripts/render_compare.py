@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Compare two HTML files: raw vs rendered."""
 
 from __future__ import annotations
 

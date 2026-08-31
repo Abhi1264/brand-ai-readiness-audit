@@ -1,9 +1,3 @@
-"""robots.txt discovery and allow/deny checks.
-
-Existence of robots.txt is never treated as a problem. Only audited URLs that
-are actually disallowed become evidence.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -53,7 +47,6 @@ def _disallow_patterns(raw: str) -> list[str]:
 
 
 def _strip_html_tail(raw: str) -> str:
-    """Some hosts append an HTML document after robots.txt. Keep the robots portion."""
     for marker in ("<!doctype", "<html", "<HTML"):
         idx = raw.find(marker)
         if idx > 0:
@@ -94,6 +87,5 @@ def empty_robots(start_url: str) -> RobotsPolicy:
 
 
 def allows_url(raw_robots: str, url: str, user_agent: str = DEFAULT_USER_AGENT) -> bool:
-    """Pure helper for tests and scripts."""
     policy = parse_robots(raw_robots, "https://example.com/robots.txt", user_agent)
     return policy.allows(url)

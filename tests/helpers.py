@@ -1,5 +1,3 @@
-"""Build crawl snapshots from local HTML without hitting the network."""
-
 from __future__ import annotations
 
 from pathlib import Path

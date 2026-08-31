@@ -1,8 +1,3 @@
-"""Evidence payloads attached to findings.
-
-Evidence is observational. Analyzers must never invent quotes, URLs, or counts.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -11,8 +6,6 @@ from pydantic import BaseModel, Field
 
 
 class EvidencePayload(BaseModel):
-    """Structured evidence that can also render as a judge-readable string."""
-
     observation: str
     source_urls: list[str] = Field(default_factory=list)
     metrics: dict[str, Any] = Field(default_factory=dict)
@@ -20,7 +13,6 @@ class EvidencePayload(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
     def as_text(self) -> str:
-        """Flatten to the required string `evidence` field."""
         parts = [self.observation.strip()]
         if self.metrics:
             metric_bits = []

@@ -1,9 +1,3 @@
-"""Compare raw HTML against browser-rendered HTML.
-
-A JavaScript stack is not a defect. A finding is emitted only when important
-facts are absent from the simpler reader and present after rendering.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass

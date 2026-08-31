@@ -1,5 +1,3 @@
-"""Entity extraction and consistency — site signals only, no speculative resolution."""
-
 from __future__ import annotations
 
 import re
@@ -136,7 +134,6 @@ def naming_variants(snapshot: CrawlSnapshot) -> list[str]:
 
 
 def is_under_specified(snapshot: CrawlSnapshot) -> bool:
-    """Ambiguity only if the site's own signals are thin."""
     orgs = [entity for entity in snapshot.entities if entity.kind in {"organization", "brand"}]
     if not orgs:
         return False

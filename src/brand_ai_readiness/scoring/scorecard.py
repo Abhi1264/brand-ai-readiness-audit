@@ -1,22 +1,3 @@
-"""Observable-signal scorecard. No LLM opinions.
-
-ai_discoverability_score =
-    0.30 * crawlability
-  + 0.25 * machine_readability
-  + 0.25 * structured_data
-  + 0.12 * entity_clarity
-  + 0.08 * freshness_transparency
-
-engagement_score =
-    0.30 * homepage_orientation
-  + 0.20 * navigation
-  + 0.20 * cta_clarity
-  + 0.15 * internal_linking
-  + 0.15 * mobile
-
-overall_score = round(0.55 * ai + 0.45 * engagement)
-"""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.engagement import EngagementSignals, analyze_engagement

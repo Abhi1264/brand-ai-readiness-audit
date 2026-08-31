@@ -1,5 +1,3 @@
-"""Choose the best HTML/text representation of a page (raw vs rendered)."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.html import extract_links, parse_html, title_text
@@ -7,7 +5,6 @@ from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage
 
 
 def effective_page(page: FetchedPage, snapshot: CrawlSnapshot) -> FetchedPage:
-    """Prefer browser-rendered HTML when it contains substantially more content."""
     rendered = snapshot.desktop_rendered(page)
     if not rendered or rendered.error or not rendered.html:
         return page

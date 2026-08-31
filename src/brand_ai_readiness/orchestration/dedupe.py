@@ -1,5 +1,3 @@
-"""Merge findings that share a root cause instead of repeating them."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.models.findings import Finding

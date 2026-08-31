@@ -1,5 +1,3 @@
-"""Shared HTML / visible-text helpers used by every analyzer."""
-
 from __future__ import annotations
 
 import json

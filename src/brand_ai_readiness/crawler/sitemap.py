@@ -1,5 +1,3 @@
-"""Sitemap discovery and URL extraction."""
-
 from __future__ import annotations
 
 import gzip
@@ -31,7 +29,6 @@ def looks_like_xml_sitemap(text: str) -> bool:
 
 
 def decode_sitemap_bytes(body: bytes, content_type: str = "") -> tuple[str | None, str | None]:
-    """Return (text, skip_reason). skip_reason is set when this is not sitemap XML."""
     raw = body or b""
     if raw.startswith(_GZIP_MAGIC):
         try:
@@ -64,7 +61,6 @@ def parse_sitemap_document(
     start_url: str,
     limit: int = 200,
 ) -> tuple[list[str], list[str]]:
-    """Return (page_urls, child_sitemap_urls) from already-decoded XML text."""
     pages: list[str] = []
     children: list[str] = []
     if looks_like_html(text) and not looks_like_xml_sitemap(text):

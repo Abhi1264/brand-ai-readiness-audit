@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Build brand-ai-readiness-audit.zip with marketplace.json at the archive root."""
 
 from __future__ import annotations
 

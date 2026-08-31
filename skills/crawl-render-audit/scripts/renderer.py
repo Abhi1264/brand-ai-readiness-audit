@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Render selected pages with Playwright if available."""
 
 from __future__ import annotations
 

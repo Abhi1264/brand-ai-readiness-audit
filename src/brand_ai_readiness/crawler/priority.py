@@ -1,5 +1,3 @@
-"""Crawl priority: homepage and commercially important pages first."""
-
 from __future__ import annotations
 
 import re

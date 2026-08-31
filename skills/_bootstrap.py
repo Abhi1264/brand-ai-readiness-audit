@@ -1,5 +1,3 @@
-"""Put the marketplace src/ on sys.path so skill scripts can import the library."""
-
 from __future__ import annotations
 
 import sys

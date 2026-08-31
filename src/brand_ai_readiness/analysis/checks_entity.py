@@ -1,5 +1,3 @@
-"""Entity, claim, freshness, and corroboration findings."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.entities import is_under_specified, naming_variants, organization_names

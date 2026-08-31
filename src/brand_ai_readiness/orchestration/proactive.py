@@ -1,5 +1,3 @@
-"""Contextual proactive recommendations — only when they fit the site."""
-
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.site_type import expected_schema_types

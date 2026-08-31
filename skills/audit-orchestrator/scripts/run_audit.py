@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Entrypoint CLI used by the audit-orchestrator skill."""
 
 from __future__ import annotations
 

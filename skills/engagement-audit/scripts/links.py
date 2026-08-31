@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""List internal/external links from an HTML file."""
 
 from __future__ import annotations
 

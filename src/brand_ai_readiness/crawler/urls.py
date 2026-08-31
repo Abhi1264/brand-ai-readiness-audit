@@ -1,5 +1,3 @@
-"""URL normalization, origin checks, and host extraction."""
-
 from __future__ import annotations
 
 from urllib.parse import parse_qsl, urljoin, urlparse, urlunparse
@@ -38,7 +36,6 @@ def _normalize_path(path: str) -> str:
 
 
 def normalize_url(url: str, base: str | None = None) -> str:
-    """Canonicalize a URL for crawl de-duplication."""
     raw = url.strip()
     if base:
         raw = urljoin(base, raw)
@@ -78,7 +75,6 @@ def same_origin(left: str, right: str) -> bool:
 
 
 def site_label(url: str) -> str:
-    """Host used as the report `site` field."""
     parsed = urlparse(url if "://" in url else f"https://{url}")
     host = (parsed.hostname or "").lower()
     return host.removeprefix("www.") or host

@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-"""Check whether a URL is allowed by a robots.txt document."""
 
 from __future__ import annotations
 
