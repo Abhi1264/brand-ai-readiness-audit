@@ -1,0 +1,13 @@
+{
+  "observation": "14 of 18 discovered product pages contain no Product structured data. The pages expose product name and price in visible HTML but provide no corresponding Product/Offer JSON-LD.",
+  "source_urls": [
+    "https://example.com/products/widget",
+    "https://example.com/products/gasket"
+  ],
+  "metrics": {
+    "pages_checked": 18,
+    "with_product_jsonld": 4,
+    "missing": 14
+  },
+  "quotes": ["Acme Pro — $129"]
+}

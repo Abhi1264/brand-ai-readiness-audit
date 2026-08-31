@@ -1,0 +1,15 @@
+#!/usr/bin/env python3
+"""Entrypoint CLI used by the audit-orchestrator skill."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
+import skills._bootstrap  # noqa: E402, F401
+
+from brand_ai_readiness.orchestration.cli import main  # noqa: E402
+
+if __name__ == "__main__":
+    raise SystemExit(main())

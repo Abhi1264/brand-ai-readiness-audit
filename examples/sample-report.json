@@ -1,0 +1,106 @@
+{
+  "site": "example.com",
+  "audited_at": "2026-09-20T14:32:00Z",
+  "summary": {
+    "total_findings": 6,
+    "critical": 1,
+    "high": 2,
+    "medium": 3,
+    "low": 0
+  },
+  "findings": [
+    {
+      "id": "F-001",
+      "title": "robots.txt blocks important pages that the audit needed to read",
+      "severity": "critical",
+      "evidence": "4 of 37 fetched-or-attempted URLs were disallowed by robots.txt, including 3 important page(s). Metrics: pages_checked=37; blocked_pages=4.",
+      "suggested_action": {
+        "summary": "Allow crawlers to fetch public marketing, product, and about URLs in robots.txt.",
+        "priority": "critical"
+      },
+      "category": "crawlability",
+      "confidence": 0.95
+    },
+    {
+      "id": "F-002",
+      "title": "No JSON-LD structured data was observed on crawled pages",
+      "severity": "high",
+      "evidence": "No parseable JSON-LD was observed on 12 crawled HTML page(s). This is a coverage statement about the crawled set, not a claim about unfetched URLs.",
+      "suggested_action": {
+        "summary": "Add Product/Offer JSON-LD to every product page.",
+        "priority": "high"
+      },
+      "category": "structured_data",
+      "confidence": 0.86
+    },
+    {
+      "id": "F-003",
+      "title": "Important information is missing from raw HTML and appears only after rendering",
+      "severity": "high",
+      "evidence": "Raw HTML visible-text length: 421 words. Rendered visible-text length: 2781 words. Important facts found only after rendering: product description, pricing, product name.",
+      "suggested_action": {
+        "summary": "Server-render or prerender titles, prices, and primary descriptions in HTML.",
+        "priority": "high"
+      },
+      "category": "rendering",
+      "confidence": 0.9
+    },
+    {
+      "id": "F-004",
+      "title": "Homepage does not orient a first-time visitor",
+      "severity": "medium",
+      "evidence": "The homepage contains 5 primary navigation destinations but no visible statement identifying the target audience, and the first CTA routes to a generic contact page.",
+      "suggested_action": {
+        "summary": "Add a specific H1, one sentence on who the site is for, and one primary CTA on the homepage.",
+        "priority": "medium"
+      },
+      "category": "engagement",
+      "confidence": 0.8
+    },
+    {
+      "id": "F-005",
+      "title": "The primary brand name is under-specified on the site itself",
+      "severity": "medium",
+      "evidence": "Primary observed name(s) ['Atlas'] lack a combination of industry + location + legal suffix + sameAs on the crawled pages.",
+      "suggested_action": {
+        "summary": "Add a one-sentence disambiguator (what + where) and sameAs links to official profiles.",
+        "priority": "medium"
+      },
+      "category": "entity",
+      "confidence": 0.7
+    },
+    {
+      "id": "F-006",
+      "title": "Time-sensitive pages have no usable freshness signal",
+      "severity": "medium",
+      "evidence": "2 pricing/article page(s) use time-sensitive language, but freshness cannot be established from structured or visible dates.",
+      "suggested_action": {
+        "summary": "Add a visible last-updated date and dateModified on time-sensitive templates.",
+        "priority": "medium"
+      },
+      "category": "freshness",
+      "confidence": 0.7
+    }
+  ],
+  "proactive_recommendations": [
+    {
+      "summary": "Add a 2–3 sentence factual summary block that a machine can quote verbatim",
+      "why_it_matters": "A compact fact box is what assistants copy.",
+      "what_to_change": "Place an unambiguous summary near the H1.",
+      "expected_benefit": "More accurate one-line citations.",
+      "priority": "medium"
+    }
+  ],
+  "coverage": {
+    "pages_discovered": 42,
+    "pages_crawled": 37,
+    "pages_rendered": 8,
+    "pages_failed": 2,
+    "pages_blocked": 4,
+    "rendering_status": "complete",
+    "corroboration_status": "unavailable",
+    "limitations": [
+      "Independent corroboration was not run (corroboration_status=unavailable)."
+    ]
+  }
+}
