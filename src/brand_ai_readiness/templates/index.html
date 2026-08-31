@@ -56,12 +56,12 @@
             <input
               id="url"
               name="url"
-              type="url"
+              type="text"
               inputmode="url"
               required
               spellcheck="false"
               autocomplete="url"
-              placeholder="https://example.com…"
+              placeholder="example.com"
               value="{{ url }}"
               aria-describedby="url-hint{% if error %} url-error{% endif %}"
               aria-invalid="{{ 'true' if error else 'false' }}"
@@ -72,7 +72,6 @@
           {% if error %}
           <p class="field-error" id="url-error" data-field-error role="alert">{{ error }}</p>
           {% endif %}
-          <p class="hint" id="url-hint">We’ll only look at public pages. Nothing on the site is changed.</p>
         </div>
 
         <details class="options">

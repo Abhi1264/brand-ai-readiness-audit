@@ -167,7 +167,7 @@ label {
   position: relative;
 }
 
-input[type="url"],
+#url,
 input[type="number"] {
   width: 100%;
   min-height: 48px;
@@ -180,7 +180,7 @@ input[type="number"] {
   font-size: 1rem;
 }
 
-input[type="url"] {
+#url {
   padding-bottom: 0.9rem;
 }
 

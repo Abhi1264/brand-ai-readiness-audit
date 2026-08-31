@@ -17,11 +17,14 @@ def test_home_is_html_form():
     assert response.status_code == 200
     assert "Check site" in response.text
     assert 'name="url"' in response.text
+    assert 'type="text"' in response.text
+    assert 'placeholder="example.com"' in response.text
     assert "Recommend-only" not in response.text
 
 
 def test_normalize_public_url():
     assert normalize_public_url("example.com") == "https://example.com"
+    assert normalize_public_url("https://example.com/about") == "https://example.com/about"
     with pytest.raises(ValueError):
         normalize_public_url("not-a-host")
 
