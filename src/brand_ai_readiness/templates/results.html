@@ -1,0 +1,42 @@
+<section class="results" aria-labelledby="results-title">
+  <div class="results-head">
+    <div>
+      <h2 id="results-title">{{ report.site }}</h2>
+      <p class="when">Checked {{ checked_label }}</p>
+    </div>
+    <a class="btn btn-secondary" href="#results-title" data-download data-site="{{ report.site }}">Download report</a>
+  </div>
+
+  <div class="scores">
+    <div class="score">
+      <span>Visibility</span>
+      <b>{{ report.scores.ai_discoverability_score if report.scores else "—" }}</b>
+    </div>
+    <div class="score">
+      <span>Experience</span>
+      <b>{{ report.scores.engagement_score if report.scores else "—" }}</b>
+    </div>
+    <div class="score">
+      <span>Overall</span>
+      <b>{{ report.scores.overall_score if report.scores else "—" }}</b>
+    </div>
+  </div>
+
+  {% if report.findings %}
+  <h2 id="findings">What to fix · {{ report.findings|length }}</h2>
+  <div class="findings">
+    {% for item in report.findings %}
+    <article class="finding finding-{{ item.severity }}">
+      <p class="sev">{{ item.severity|capitalize }}</p>
+      <h3>{{ item.title }}</h3>
+      <p>{{ item.suggested_action.summary }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty">
+    <p>No issues found on the pages we scanned. That’s a strong starting point.</p>
+  </div>
+  {% endif %}
+  <script type="application/json" id="report-json">{{ report | tojson }}</script>
+</section>

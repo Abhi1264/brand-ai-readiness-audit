@@ -1,0 +1,14 @@
+.venv
+venv
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.playwright
+htmlcov
+dist
+build
+*.egg-info
+*.zip
+report.json
+reports
+.git

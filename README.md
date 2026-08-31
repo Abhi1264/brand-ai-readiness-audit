@@ -113,6 +113,17 @@ python skills/audit-orchestrator/scripts/validate_report.py report.json
 
 No API key is required. `OPENAI_API_KEY` plus `--llm-polish` may rewrite recommendation wording over already-collected evidence.
 
+## Deploy on Vercel
+
+This repo is a CLI marketplace. Vercel also hosts it as a FastAPI app (`app.py`, `tool.vercel.entrypoint = "app:app"`).
+
+```bash
+pip install -e ".[web]"
+uvicorn app:app --reload
+```
+
+Open http://127.0.0.1:8000 and enter a website. Hosted scans skip browser rendering and cap the crawl at 20 pages. `POST /api/audit` still returns the JSON report if you need it.
+
 ## How to test
 
 ```bash

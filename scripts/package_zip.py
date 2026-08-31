@@ -18,6 +18,7 @@ SKIP_DIR_NAMES = {
     ".mypy_cache",
     ".ruff_cache",
     ".playwright",
+    ".vercel",
     "htmlcov",
     "dist",
     "build",
