@@ -21,6 +21,10 @@ def _snapshot(probes: list[AccessProbeResult], *, robots_raw: str | None = None)
     )
     snapshot.access_probes = probes
     snapshot.access_probe_status = "complete"
+    # Default to a readable robots.txt: the robots-vs-server table only means
+    # anything when the declared policy was actually retrievable. Tests that
+    # exercise the unreadable case set this back to False explicitly.
+    snapshot.robots.available = True
     return snapshot
 
 
@@ -196,3 +200,61 @@ def test_probe_can_be_disabled(serve_ua_gated_site):
     assert snapshot.access_probe_status == "skipped"
     assert snapshot.access_probes == []
     assert "ai_crawler_edge_blocked" not in {f.mechanism_code for f in crawl_findings(snapshot)}
+
+
+# --- the probe must not cost more than the crawl it informs -----------------
+
+
+def test_probe_budget_fails_fast():
+    """Origins that tarpit unfamiliar agents must not blow the time budget.
+
+    Without this the probe inherits the crawl's retries and timeout, so one
+    hanging origin costs retries x timeout x (HEAD then GET) per agent.
+    """
+    from brand_ai_readiness.crawler.access_probe import _probe_budget
+
+    slow = AuditBudget(request_timeout_s=15.0, max_retries=2)
+    probe = _probe_budget(slow)
+    assert probe.max_retries == 0
+    assert probe.request_timeout_s <= 8.0
+    # The crawl's own budget must be untouched.
+    assert slow.max_retries == 2 and slow.request_timeout_s == 15.0
+
+
+def test_probe_status_reaches_the_report():
+    """A reader must be able to tell whether the probe actually ran."""
+    from brand_ai_readiness.orchestration.compose import report_from_snapshot
+
+    snapshot = _snapshot([_probe("browser", 200, ai=False), _probe("GPTBot", 200)])
+    report = report_from_snapshot(snapshot)
+    assert report.coverage.access_probe_status == "complete"
+
+    unknown = _snapshot([_probe("browser", 200, ai=False)])
+    unknown.access_probe_status = "unavailable"
+    degraded = report_from_snapshot(unknown)
+    assert degraded.coverage.access_probe_status == "unavailable"
+    assert any("access probe" in line.lower() for line in degraded.coverage.limitations)
+
+
+def test_unreadable_robots_is_not_reported_as_permission():
+    """Absence of robots.txt is not the same claim as robots.txt permitting an agent."""
+    snapshot = _snapshot(
+        [_probe("browser", 200, ai=False), _probe("GPTBot", 403, robots_allows=True)]
+    )
+    snapshot.robots.available = False
+    findings = crawl_findings(snapshot)
+    codes = {f.mechanism_code for f in findings}
+    assert "ai_crawler_edge_blocked" not in codes
+    assert "ai_crawler_blocked_robots_unknown" in codes
+    reported = [f for f in findings if f.mechanism_code == "ai_crawler_blocked_robots_unknown"][0]
+    assert reported.severity != "critical"
+    assert "permits" not in reported.evidence.as_text()
+
+
+def test_readable_robots_still_yields_the_critical_contradiction():
+    snapshot = _snapshot(
+        [_probe("browser", 200, ai=False), _probe("GPTBot", 403, robots_allows=True)]
+    )
+    snapshot.robots.available = True
+    findings = [f for f in crawl_findings(snapshot) if f.mechanism_code == "ai_crawler_edge_blocked"]
+    assert len(findings) == 1 and findings[0].severity == "critical"

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 
 import httpx
 
@@ -31,6 +32,20 @@ logger = logging.getLogger(__name__)
 
 # Status codes that mean "this origin does not answer HEAD", not "you are blocked".
 _HEAD_UNSUPPORTED = {400, 405, 501}
+
+# A diagnostic must never cost more than the crawl it informs. Origins that
+# tarpit unfamiliar user-agents would otherwise multiply out to
+# retries x timeout x (HEAD then GET) per agent, so the probe takes no retries
+# and a shorter deadline; an agent that does not answer is recorded as unknown.
+_PROBE_TIMEOUT_S = 8.0
+
+
+def _probe_budget(budget: AuditBudget) -> AuditBudget:
+    return replace(
+        budget,
+        max_retries=0,
+        request_timeout_s=min(budget.request_timeout_s, _PROBE_TIMEOUT_S),
+    )
 
 
 async def _probe_one(
@@ -74,6 +89,8 @@ async def probe_access(
     user-agent would otherwise yield no probe data at all, which is exactly the
     signal being measured. One URL, one request per agent.
     """
+
+    budget = _probe_budget(budget)
 
     def _robots_verdict(agent_token: str) -> bool:
         if robots_policy is None:

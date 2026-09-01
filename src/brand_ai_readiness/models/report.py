@@ -50,6 +50,7 @@ class Coverage(BaseModel):
     pages_blocked: int = 0
     rendering_status: str = "skipped"
     corroboration_status: str = "unavailable"
+    access_probe_status: str = "skipped"
     limitations: list[str] = Field(default_factory=list)
 
 

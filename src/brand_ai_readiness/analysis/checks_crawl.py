@@ -30,22 +30,25 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     if not blocked:
         return []
 
-    contradicted = [probe for probe in blocked if probe.robots_allows]
-    consistent = [probe for probe in blocked if not probe.robots_allows]
-    metrics = {
-        "browser_status": browser.status_code,
-        "browser_bytes": browser.body_bytes,
+    # A permissive robots verdict only means something when robots.txt was
+    # actually readable. When it was not, allows_for() defaults to True for
+    # crawling purposes -- but "we could not read robots.txt" is not the same
+    # claim as "robots.txt permits this agent", and reporting it as the latter
+    # invents a contradiction that was never observed.
+    robots_known = snapshot.robots.available
+    contradicted = [probe for probe in blocked if robots_known and probe.robots_allows]
+    consistent = [probe for probe in blocked if robots_known and not probe.robots_allows]
+    undetermined = [] if robots_known else list(blocked)
+    # Flat scalars only: metrics are rendered into a prose evidence string, so a
+    # nested dict would surface to the reader as a Python repr.
+    metrics: dict[str, object] = {
         "probe_url": snapshot.start_url,
-        "by_agent": {
-            probe.agent: {
-                "status": probe.status_code,
-                "method": probe.method,
-                "bytes": probe.body_bytes,
-                "robots_allows": probe.robots_allows,
-            }
-            for probe in ai_probes
-        },
+        "probe_method": browser.method,
+        "browser_status": browser.status_code,
     }
+    for probe in ai_probes:
+        metrics[f"{probe.agent}_status"] = probe.status_code
+        metrics[f"{probe.agent}_robots_allows"] = "yes" if probe.robots_allows else "no"
 
     findings: list[Finding] = []
     if contradicted:
@@ -141,6 +144,52 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
                 scope_pages=1,
                 scope_fraction=1.0,
                 impact_weight=2,
+            )
+        )
+
+    # Blocked, but robots.txt could not be read: report the observation without
+    # asserting whether the exclusion was intended.
+    if undetermined:
+        names = ", ".join(probe.agent for probe in undetermined)
+        findings.append(
+            make_finding(
+                id="CR-012",
+                category="crawlability",
+                title="Server blocks AI crawlers (robots.txt could not be read)",
+                mechanism_code="ai_crawler_blocked_robots_unknown",
+                mechanism=(
+                    "The origin refuses these agents by user-agent. robots.txt was not "
+                    "retrievable during this audit, so the site's declared policy is unknown."
+                ),
+                impact=(
+                    "These assistants cannot retrieve the page. Whether that is intended "
+                    "could not be established from the evidence available."
+                ),
+                observation=(
+                    f"{snapshot.start_url} returned {browser.status_code} to a browser "
+                    f"user-agent but {', '.join(f'{p.status_code} to {p.agent}' for p in undetermined)}. "
+                    "robots.txt was not readable, so its stated policy could not be compared."
+                ),
+                source_urls=[snapshot.start_url],
+                metrics=metrics,
+                action_summary=(
+                    f"Publish a reachable robots.txt stating the intended policy for {names}, "
+                    "then align the CDN/WAF bot rules with it."
+                ),
+                action_details=(
+                    "Two things are unresolved: robots.txt did not return a usable response, "
+                    "and the edge refuses these agents. Fix the former first so the intended "
+                    "policy is stated, then confirm the edge rules match it."
+                ),
+                rationale=(
+                    "Severity is held below critical because no contradiction was observed -- "
+                    "only a block with no declared policy to compare against."
+                ),
+                implementation_direction="robots.txt availability, then edge bot-management rules.",
+                confidence=0.75,
+                scope_pages=1,
+                scope_fraction=1.0,
+                impact_weight=3,
             )
         )
     return findings

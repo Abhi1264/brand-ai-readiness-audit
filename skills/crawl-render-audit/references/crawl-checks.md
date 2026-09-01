@@ -20,6 +20,7 @@
 | Important URL disallowed | robots blocks important pages |
 | robots allows an AI agent but the origin 4xx/5xx it | AI crawler blocked at the edge (`critical`) |
 | robots disallows an AI agent and the origin also refuses it | deliberate exclusion (`medium`) |
+| an AI agent is refused and robots.txt was unreadable | blocked, policy unknown (`high`) |
 | Important URL 4xx/5xx | HTTP failure |
 | redirect_loop / excessive_redirects | redirect failure |
 | noindex on homepage/product/about | noindex important |
@@ -54,5 +55,12 @@ agree?** A site can publish a permissive robots.txt and still return 403 from a 
 (Cloudflare "Block AI Bots", Akamai Bot Manager, or a server-level user-agent deny). Nothing in the
 robots file reveals that, and the site owner usually does not know.
 
+A permissive robots verdict only counts when robots.txt was actually readable. When it was not,
+the parser defaults to allow for crawling purposes, but "we could not read robots.txt" is not the
+claim "robots.txt permits this agent" — reporting it as the latter invents a contradiction that
+was never observed. That case is reported separately, below critical.
+
 Constraints: HEAD first and GET only if the origin does not implement HEAD (400/405/501); one URL;
-one request per identity; never used to retrieve content the audit's own user-agent was denied.
+one request per identity; no retries and an 8s deadline, so an origin that tarpits unfamiliar
+agents cannot consume the audit's time budget; never used to retrieve content the audit's own
+user-agent was denied.

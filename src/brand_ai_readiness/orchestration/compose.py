@@ -66,6 +66,11 @@ def _coverage(snapshot: CrawlSnapshot) -> Coverage:
         limits.append(f"{snapshot.stats.pages_failed} page(s) failed to fetch.")
     if snapshot.corroboration_status == "unavailable":
         limits.append("Independent corroboration was not run (corroboration_status=unavailable).")
+    if snapshot.access_probe_status not in {"complete"}:
+        limits.append(
+            f"AI-crawler access probe was {snapshot.access_probe_status}; whether AI crawlers are "
+            "served the same content as a browser could not be established."
+        )
     if snapshot.stats.pages_crawled < snapshot.stats.pages_discovered:
         limits.append(
             f"Crawl budget stopped at {snapshot.stats.pages_crawled} of {snapshot.stats.pages_discovered} discovered URLs."
@@ -78,6 +83,7 @@ def _coverage(snapshot: CrawlSnapshot) -> Coverage:
         pages_blocked=snapshot.stats.pages_blocked,
         rendering_status=snapshot.stats.rendering_status,
         corroboration_status=snapshot.corroboration_status,
+        access_probe_status=snapshot.access_probe_status,
         limitations=limits,
     )
 

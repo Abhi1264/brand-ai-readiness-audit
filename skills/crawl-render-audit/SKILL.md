@@ -33,11 +33,13 @@ Use this skill to answer: **Can automated systems reach and read the site's impo
    | allows | **blocks** | `critical` — silent invisibility the owner is unlikely to know about |
    | blocks | blocks | `medium` — consistent, deliberate exclusion; confirm it is intended |
    | blocks | allows | no finding — nothing is being denied |
+   | *unreadable* | blocks | `high` — blocked, but the declared policy is unknown |
    | allows | allows | no finding |
 
    Trigger only on a **status** divergence. Body-length differences alone are not evidence:
    personalization, A/B tests, geo variants and cookie walls all move body size. If the browser
    identity is itself refused (paywall, geo-block, auth wall), emit nothing — that is not bot policy.
+   Treat a permissive robots verdict as meaningful only when robots.txt was actually readable.
    This probe is one bounded request per agent against one URL, and is deliberately not gated on
    robots.txt, because a site that disallows the audit's own agent would otherwise yield no data at
    all. A block is recorded as a finding, never circumvented.

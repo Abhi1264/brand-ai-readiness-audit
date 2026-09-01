@@ -20,8 +20,9 @@ Treat these as one finding when URLs overlap:
 - `js_content_gap` plus a generic "content hard to access" note — keep the render-gap finding; fold extra evidence into it
 - `robots_blocks_important` plus `ai_crawler_excluded_by_policy` — one root cause. The probe finding
   is suppressed when the robots finding already fired, so they never both appear.
-- `ai_crawler_edge_blocked` and `ai_crawler_excluded_by_policy` are mutually exclusive by
-  construction: the first is robots-allows/server-blocks, the second robots-blocks/server-blocks.
+- `ai_crawler_edge_blocked`, `ai_crawler_excluded_by_policy` and
+  `ai_crawler_blocked_robots_unknown` are mutually exclusive by construction: robots
+  allows/blocks/was-unreadable respectively, against a server block.
 
 ## Severity
 
