@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from brand_ai_readiness.analysis.finding_factory import make_finding
 from brand_ai_readiness.analysis.machine_readability import image_only_fact_pages
+from brand_ai_readiness.analysis.snippet_policy import (
+    DATA_NOSNIPPET_DOMINANT,
+    analyze_snippet_policy,
+)
 from brand_ai_readiness.crawler.urls import normalize_url
 from brand_ai_readiness.models.findings import Finding
 from brand_ai_readiness.models.snapshot import CrawlSnapshot
@@ -19,14 +23,19 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     if snapshot.access_probe_status != "complete":
         return []
     browser = snapshot.browser_probe()
-    ai_probes = snapshot.ai_probes()
+    # Only search-class crawlers decide whether a brand can be cited. Blocking
+    # training-class bots (GPTBot, ClaudeBot, CCBot) while allowing the search
+    # ones is a supported configuration, so it is recorded as context and never
+    # raises a finding on its own.
+    search_probes = snapshot.search_probes()
+    training_probes = snapshot.training_probes()
     # Without a browser baseline that succeeded there is nothing to compare
     # against: an origin that refuses everyone (paywall, geo-block, auth wall)
     # is not an AI-crawler policy problem.
-    if browser is None or not browser.reachable() or not ai_probes:
+    if browser is None or not browser.reachable() or not search_probes:
         return []
 
-    blocked = [probe for probe in ai_probes if probe.status_code >= 400]
+    blocked = [probe for probe in search_probes if probe.status_code >= 400]
     if not blocked:
         return []
 
@@ -46,9 +55,12 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
         "probe_method": browser.method,
         "browser_status": browser.status_code,
     }
-    for probe in ai_probes:
-        metrics[f"{probe.agent}_status"] = probe.status_code
-        metrics[f"{probe.agent}_robots_allows"] = "yes" if probe.robots_allows else "no"
+    for probe in search_probes:
+        metrics[f"search_{probe.agent}_status"] = probe.status_code
+        metrics[f"search_{probe.agent}_robots_allows"] = "yes" if probe.robots_allows else "no"
+    # Training-class results are context for the reader, not part of the verdict.
+    for probe in training_probes:
+        metrics[f"training_{probe.agent}_status"] = probe.status_code
 
     findings: list[Finding] = []
     if contradicted:
@@ -57,12 +69,13 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
             make_finding(
                 id="CR-010",
                 category="crawlability",
-                title="Server blocks AI crawlers that robots.txt permits",
+                title="Server blocks AI search crawlers that robots.txt permits",
                 mechanism_code="ai_crawler_edge_blocked",
                 mechanism=(
                     "robots.txt is a request a crawler honors; the CDN/WAF decides what is "
-                    "actually served. Here the two disagree: robots.txt allows these agents "
-                    "but the origin refuses them by user-agent."
+                    "actually served. Here the two disagree: robots.txt allows these "
+                    "search-class agents but the origin refuses them by user-agent. These "
+                    "are the crawlers that decide whether the brand can be cited at all."
                 ),
                 impact=(
                     "Assistants using these crawlers never receive the page, so the brand "
@@ -111,7 +124,7 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
             make_finding(
                 id="CR-011",
                 category="crawlability",
-                title="AI crawlers are excluded by both robots.txt and the server",
+                title="AI search crawlers are excluded by both robots.txt and the server",
                 mechanism_code="ai_crawler_excluded_by_policy",
                 mechanism=(
                     "robots.txt disallows these agents and the origin also refuses them at "
@@ -155,7 +168,7 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
             make_finding(
                 id="CR-012",
                 category="crawlability",
-                title="Server blocks AI crawlers (robots.txt could not be read)",
+                title="Server blocks AI search crawlers (robots.txt could not be read)",
                 mechanism_code="ai_crawler_blocked_robots_unknown",
                 mechanism=(
                     "The origin refuses these agents by user-agent. robots.txt was not "
@@ -189,6 +202,191 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
                 confidence=0.75,
                 scope_pages=1,
                 scope_fraction=1.0,
+                impact_weight=3,
+            )
+        )
+    return findings
+
+
+_CONTENT_ROLES = {"homepage", "about", "product", "service", "pricing", "article", "docs"}
+
+
+def _snippet_findings(snapshot: CrawlSnapshot) -> list[Finding]:
+    """Directives that suppress the snippet a page would otherwise be cited from.
+
+    Restricted to content-bearing roles: nosnippet on a legal or account page is
+    ordinary practice, not a discoverability problem.
+    """
+    pages = [page for page in snapshot.successful_pages() if page.role in _CONTENT_ROLES]
+    if not pages:
+        return []
+    total = len(pages)
+    policies = [
+        analyze_snippet_policy(page.url, page.html, page.headers, page.robots_meta)
+        for page in pages
+    ]
+    findings: list[Finding] = []
+
+    nosnippet = [item for item in policies if item.nosnippet]
+    if nosnippet:
+        where = sorted({source for item in nosnippet for source in item.sources})
+        findings.append(
+            make_finding(
+                id="CR-020",
+                category="crawlability",
+                title="nosnippet stops content being used by AI answer surfaces",
+                mechanism_code="nosnippet_suppresses_ai",
+                mechanism=(
+                    "Google documents that nosnippet prevents the content from being used as "
+                    "a direct input for AI Overviews and AI Mode, not merely from showing a "
+                    "search snippet."
+                ),
+                impact=(
+                    "The page can be crawled and indexed and still never be quoted, because "
+                    "the text is withheld from the surface that would cite it."
+                ),
+                observation=(
+                    f"{len(nosnippet)} of {total} content page(s) carry a nosnippet directive "
+                    f"(via {', '.join(where) or 'robots directives'})."
+                ),
+                source_urls=[item.url for item in nosnippet[:8]],
+                metrics={
+                    "pages_checked": total,
+                    "pages_with_nosnippet": len(nosnippet),
+                    "directive_sources": ", ".join(where),
+                },
+                action_summary=(
+                    "Remove nosnippet from pages that should be quotable, keeping it only "
+                    "where content genuinely must not be excerpted."
+                ),
+                action_details=(
+                    "Check both the robots meta tag and the X-Robots-Tag response header -- "
+                    "either alone is enough to suppress the page, and a CDN or framework may "
+                    "be adding the header without the markup showing it."
+                ),
+                rationale="Only pages that actually carry the directive are counted.",
+                implementation_direction="robots meta tag and X-Robots-Tag response header.",
+                confidence=0.95,
+                scope_pages=len(nosnippet),
+                scope_fraction=len(nosnippet) / total,
+                impact_weight=3,
+            )
+        )
+
+    limited = [item for item in policies if item.max_snippet_is_limiting and not item.nosnippet]
+    if limited:
+        findings.append(
+            make_finding(
+                id="CR-021",
+                category="crawlability",
+                title="max-snippet is set too low to carry a usable fact",
+                mechanism_code="max_snippet_limits_ai",
+                mechanism=(
+                    "max-snippet caps how much text may be used as a direct input for AI "
+                    "Overviews and AI Mode, so a low value truncates the quotable answer."
+                ),
+                impact="An assistant may have too little text to state a complete fact.",
+                observation=(
+                    f"{len(limited)} of {total} content page(s) set max-snippet to "
+                    + ", ".join(sorted({str(item.max_snippet) for item in limited}))
+                    + " characters."
+                ),
+                source_urls=[item.url for item in limited[:8]],
+                metrics={"pages_checked": total, "pages_limited": len(limited)},
+                action_summary=(
+                    "Raise max-snippet, or use max-snippet:-1 for no limit, on pages that "
+                    "should be quotable."
+                ),
+                rationale=(
+                    "max-snippet:-1 means unlimited and is not counted; only low positive "
+                    "values are reported."
+                ),
+                confidence=0.9,
+                scope_pages=len(limited),
+                scope_fraction=len(limited) / total,
+                impact_weight=2,
+            )
+        )
+
+    hidden = [item for item in policies if item.data_nosnippet_dominant]
+    if hidden:
+        worst = max(hidden, key=lambda item: item.data_nosnippet_fraction)
+        findings.append(
+            make_finding(
+                id="CR-022",
+                category="crawlability",
+                title="data-nosnippet covers most of the page body",
+                mechanism_code="data_nosnippet_hides_body",
+                mechanism=(
+                    "data-nosnippet excludes the wrapped elements from snippets. Applied to a "
+                    "byline or a price that is routine; applied to the body it becomes a "
+                    "page-level opt-out."
+                ),
+                impact="The substance of the page cannot be excerpted or cited.",
+                observation=(
+                    f"{len(hidden)} of {total} content page(s) wrap at least "
+                    f"{int(DATA_NOSNIPPET_DOMINANT * 100)}% of their visible text in "
+                    f"data-nosnippet (worst: {worst.data_nosnippet_fraction:.0%} on {worst.url})."
+                ),
+                source_urls=[item.url for item in hidden[:8]],
+                metrics={
+                    "pages_checked": total,
+                    "worst_fraction": f"{worst.data_nosnippet_fraction:.0%}",
+                },
+                action_summary=(
+                    "Narrow data-nosnippet to the specific elements that must not be quoted, "
+                    "rather than the main content region."
+                ),
+                rationale=(
+                    "Targeted use on small elements is expected and is not reported; only "
+                    "coverage of the body is."
+                ),
+                confidence=0.85,
+                scope_pages=len(hidden),
+                scope_fraction=len(hidden) / total,
+                impact_weight=2,
+            )
+        )
+
+    header_only = [item for item in policies if item.header_only_noindex]
+    if header_only:
+        findings.append(
+            make_finding(
+                id="CR-023",
+                category="crawlability",
+                title="noindex is set in the HTTP header only, not in the markup",
+                mechanism_code="noindex_header_only",
+                mechanism=(
+                    "X-Robots-Tag carries the same directives as the robots meta tag, but is "
+                    "invisible to anything that only reads the HTML."
+                ),
+                impact=(
+                    "The page is excluded from indexes while the markup gives no sign of it, "
+                    "so the exclusion is easy to miss and often unintended."
+                ),
+                observation=(
+                    f"{len(header_only)} of {total} content page(s) return noindex in the "
+                    "X-Robots-Tag response header with no matching robots meta tag."
+                ),
+                source_urls=[item.url for item in header_only[:8]],
+                metrics={
+                    "pages_checked": total,
+                    "header_values": ", ".join(
+                        sorted({str(item.x_robots_tag) for item in header_only})[:4]
+                    ),
+                },
+                action_summary=(
+                    "Remove noindex from the X-Robots-Tag header on public pages, or mirror it "
+                    "in the markup so the intent is visible."
+                ),
+                action_details=(
+                    "Header directives are usually added by a CDN, reverse proxy, or framework "
+                    "middleware rather than by the page template, which is why they survive "
+                    "template changes unnoticed."
+                ),
+                confidence=0.93,
+                scope_pages=len(header_only),
+                scope_fraction=len(header_only) / total,
                 impact_weight=3,
             )
         )
@@ -239,6 +437,7 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
         robots_flagged = True
 
     findings.extend(_access_probe_findings(snapshot, robots_flagged))
+    findings.extend(_snippet_findings(snapshot))
 
     failed_http = [
         page

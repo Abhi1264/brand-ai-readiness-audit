@@ -20,7 +20,8 @@ from dataclasses import replace
 import httpx
 
 from brand_ai_readiness.config import (
-    AI_CRAWLER_PROBE_AGENTS,
+    AI_SEARCH_PROBE_AGENTS,
+    AI_TRAINING_PROBE_AGENTS,
     BROWSER_PROBE_AGENT,
     AuditBudget,
 )
@@ -55,7 +56,7 @@ async def _probe_one(
     agent: str,
     user_agent: str,
     *,
-    is_ai_crawler: bool,
+    bot_class: str,
     robots_allows: bool,
 ) -> AccessProbeResult:
     headers = {"User-Agent": user_agent}
@@ -68,7 +69,8 @@ async def _probe_one(
     return AccessProbeResult(
         agent=agent,
         user_agent=user_agent,
-        is_ai_crawler=is_ai_crawler,
+        is_ai_crawler=bot_class != "browser",
+        bot_class=bot_class,  # type: ignore[arg-type]
         status_code=result.status_code,
         method=method,
         body_bytes=len(result.body),
@@ -88,6 +90,10 @@ async def probe_access(
     Deliberately not gated on robots.txt: a site that disallows the audit's own
     user-agent would otherwise yield no probe data at all, which is exactly the
     signal being measured. One URL, one request per agent.
+
+    Search-class and training-class agents are both probed, but only the former
+    can raise a finding: opting out of training while staying in search is a
+    supported configuration, not a defect.
     """
 
     budget = _probe_budget(budget)
@@ -104,22 +110,26 @@ async def probe_access(
             budget,
             "browser",
             BROWSER_PROBE_AGENT,
-            is_ai_crawler=False,
+            bot_class="browser",
             robots_allows=True,
         )
     ]
-    jobs += [
-        _probe_one(
-            client,
-            url,
-            budget,
-            agent,
-            user_agent,
-            is_ai_crawler=True,
-            robots_allows=_robots_verdict(agent),
-        )
-        for agent, user_agent in AI_CRAWLER_PROBE_AGENTS.items()
-    ]
+    for bot_class, agents in (
+        ("search", AI_SEARCH_PROBE_AGENTS),
+        ("training", AI_TRAINING_PROBE_AGENTS),
+    ):
+        jobs += [
+            _probe_one(
+                client,
+                url,
+                budget,
+                agent,
+                user_agent,
+                bot_class=bot_class,
+                robots_allows=_robots_verdict(agent),
+            )
+            for agent, user_agent in agents.items()
+        ]
 
     results = await asyncio.gather(*jobs, return_exceptions=True)
     probes: list[AccessProbeResult] = []

@@ -29,11 +29,13 @@ def compute_scorecard(
     ]
     if any(page.role == "homepage" and page.fetch_status == "failed" for page in important_fail):
         crawlability = min(crawlability, 25)
-    # An origin that refuses AI crawlers is not crawlable by the systems this
-    # audit is about, however healthy it looks to the audit's own user-agent.
+    # An origin that refuses AI SEARCH crawlers is not crawlable by the systems
+    # this audit is about, however healthy it looks to the audit's own
+    # user-agent. Training-class blocks are a licensing choice and are not
+    # scored -- penalising them would mark a supported configuration as broken.
     browser_probe = snapshot.browser_probe()
     if browser_probe is not None and browser_probe.reachable():
-        blocked_agents = [probe for probe in snapshot.ai_probes() if probe.status_code >= 400]
+        blocked_agents = [probe for probe in snapshot.search_probes() if probe.status_code >= 400]
         if blocked_agents:
             crawlability = min(crawlability, 30 if len(blocked_agents) > 1 else 55)
 

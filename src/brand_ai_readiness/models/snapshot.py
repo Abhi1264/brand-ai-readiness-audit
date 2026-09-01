@@ -92,6 +92,9 @@ class AccessProbeResult(BaseModel):
     agent: str
     user_agent: str
     is_ai_crawler: bool = False
+    # "search" bots decide citation; "training" bots do not. Only the former
+    # can raise a discoverability finding.
+    bot_class: Literal["browser", "search", "training"] = "browser"
     status_code: int = 0
     method: str = "HEAD"
     body_bytes: int = 0
@@ -171,6 +174,12 @@ class CrawlSnapshot(BaseModel):
 
     def ai_probes(self) -> list[AccessProbeResult]:
         return [probe for probe in self.access_probes if probe.is_ai_crawler]
+
+    def search_probes(self) -> list[AccessProbeResult]:
+        return [probe for probe in self.access_probes if probe.bot_class == "search"]
+
+    def training_probes(self) -> list[AccessProbeResult]:
+        return [probe for probe in self.access_probes if probe.bot_class == "training"]
 
     def successful_pages(self) -> list[FetchedPage]:
         return [page for page in self.pages if page.fetch_status == "success" and page.html]
