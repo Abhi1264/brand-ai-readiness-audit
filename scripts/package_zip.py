@@ -25,6 +25,8 @@ MAX_ZIP_MB = 50.0
 INCLUDE = {
     "marketplace.json": "required manifest, must sit at the zip root",
     "README.md": "required by the brief: describes each skill and the entrypoint",
+    "JURY-INSTRUCTIONS.md": "one-command run, expected output, and known limitations",
+    "run-jury.sh": "the one command",
     "LICENSE": "license referenced by every SKILL.md",
     "skills": "the skills themselves",
     "src": "the implementation the skill scripts import",

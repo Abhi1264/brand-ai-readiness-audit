@@ -38,6 +38,13 @@ def test_the_implementation_ships_with_the_skills():
     assert "pyproject.toml" in shipped
 
 
+def test_jury_facing_docs_are_shipped():
+    """A judge on a clean machine needs the one command and the caveats."""
+    shipped = _shipped()
+    assert "JURY-INSTRUCTIONS.md" in shipped
+    assert "run-jury.sh" in shipped
+
+
 def test_deployment_scaffolding_is_not_shipped():
     shipped = _shipped()
     for unwanted in ("app.py", "vercel.json", ".vercelignore", ".env.example"):

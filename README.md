@@ -52,11 +52,25 @@ flowchart TD
     merge --> report[Validated JSON report]
 ```
 
+## Running it
+
+`./run-jury.sh https://example.com` sets up, tests, audits, and validates in one command. See
+[JURY-INSTRUCTIONS.md](JURY-INSTRUCTIONS.md) for expected output, runtime, and known limitations.
+
+## What on-page auditing can and cannot fix
+
+The factors correlating most strongly with whether an AI assistant cites a brand are **off-site** —
+branded mentions across the web, independent coverage, third-party corroboration. No on-page tool
+can move those, and this one does not claim to. What it can do is remove the mechanical reasons a
+brand is not citable *despite* deserving to be: it cannot be reached, cannot be read, is withheld
+from the surfaces that would quote it, or cannot be told apart from something else with the same
+name. `proactive_recommendations` marks where on-page work stops helping.
+
 ## Crawl / render strategy
 
 - Same-origin only (configurable)
 - Honor `robots.txt` — never circumvent
-- **AI-crawler access probe**: the start URL is fetched once as a browser and once each as GPTBot, ClaudeBot and PerplexityBot, and the statuses compared. robots.txt states a policy; the CDN/WAF enforces one, and they can disagree — a site can publish a permissive robots.txt and still 403 every AI crawler. Only a status divergence is reported; a probe identity is never used to retrieve content the audit's own user-agent was denied
+- **AI-crawler access probe**: the start URL is fetched once as a browser and once per AI crawler, and the statuses compared. Only **search-class** bots (`OAI-SearchBot`, `Claude-SearchBot`, `PerplexityBot`) decide citation and can raise a finding; `GPTBot`, `ClaudeBot` and `CCBot` are training crawlers, and blocking those while allowing search is a supported configuration recorded as context, never as a defect. robots.txt states a policy; the CDN/WAF enforces one, and they can disagree — a site can publish a permissive robots.txt and still 403 every AI crawler. Only a status divergence is reported; a probe identity is never used to retrieve content the audit's own user-agent was denied
 - Default budget: **40 pages**, **8 rendered pages**, 15s timeout, concurrency 4, 2MB body cap
 - Priority: homepage → sitemap → homepage links → about → product/service → pricing → contact → landings → articles
 - Playwright is optional. If browsers are missing, `rendering_status=unavailable` and the audit still completes
@@ -66,7 +80,7 @@ Typical audits target **under 5 minutes**.
 
 ## What we check
 
-**Discoverability:** robots that actually block audited URLs, AI crawlers refused by the origin despite robots.txt permitting them (and the converse — deliberate exclusion, reported as a policy to confirm rather than a defect), HTTP failures, redirect loops, canonical conflicts, noindex on important pages, unusable sitemaps, broken internal links, raw-vs-rendered gaps, image/canvas-only facts, missing or conflicting JSON-LD/OG that fits the inferred site type.
+**Discoverability:** robots that actually block audited URLs, snippet-suppression directives (`nosnippet`, low `max-snippet`, body-wide `data-nosnippet`) read from both the markup and the `X-Robots-Tag` header, AI crawlers refused by the origin despite robots.txt permitting them (and the converse — deliberate exclusion, reported as a policy to confirm rather than a defect), HTTP failures, redirect loops, canonical conflicts, noindex on important pages, unusable sitemaps, broken internal links, raw-vs-rendered gaps, image/canvas-only facts, missing or conflicting JSON-LD/OG that fits the inferred site type.
 
 **Entities / freshness:** inconsistent official names, under-specified brand names, claims copied from visible text only, `dateModified` vs copyright year, stale *time-sensitive* pages. Missing dates are reported as “freshness cannot be established,” not “stale.” Corroboration is optional and defaults to `unavailable`.
 
