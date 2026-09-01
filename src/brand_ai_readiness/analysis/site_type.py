@@ -1,9 +1,16 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 from brand_ai_readiness.analysis.pageview import effective_page
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, SiteType
+
+# A winner must beat the runner-up by at least this much, otherwise the site is
+# genuinely "mixed". Committing to a narrow winner picks the expected schema
+# types for the wrong kind of site and turns one weak signal into a confident,
+# wrong recommendation.
+_SITE_TYPE_MARGIN = 2
 
 _SIGNAL_RULES: list[tuple[SiteType, str, re.Pattern[str]]] = [
     ("ecommerce", "product/price vocabulary", re.compile(r"\b(add to cart|buy now|sku|in stock|checkout)\b", re.I)),
@@ -39,13 +46,20 @@ def infer_site_type(snapshot: CrawlSnapshot) -> CrawlSnapshot:
         "docs": ("docs", 2, "docs pages present"),
         "contact": ("local_business", 1, "contact/location pages present"),
     }
-    for page in snapshot.pages:
-        bonus = role_bonus.get(page.role)
-        if bonus:
-            kind, weight, label = bonus
-            scores[kind] = scores.get(kind, 0) + weight
-            if label not in signals:
-                signals.append(label)
+    # Award each role its weight ONCE, scaled by how much of the crawl it covers.
+    # Adding a point per page lets one large URL family (a job board's location
+    # filters, a store locator) outvote every other signal on the site.
+    role_counts = Counter(page.role for page in snapshot.pages)
+    total_pages = max(len(snapshot.pages), 1)
+    for role, (kind, weight, label) in role_bonus.items():
+        count = role_counts.get(role, 0)
+        if not count:
+            continue
+        dominant = count / total_pages >= 0.5
+        scores[kind] = scores.get(kind, 0) + weight + (1 if dominant else 0)
+        signal = f"{label} ({count}/{total_pages} crawled pages)"
+        if signal not in signals:
+            signals.append(signal)
     for kind, label, pattern in _SIGNAL_RULES:
         if pattern.search(corpus):
             scores[kind] = scores.get(kind, 0) + 2
@@ -58,7 +72,8 @@ def infer_site_type(snapshot: CrawlSnapshot) -> CrawlSnapshot:
 
     ranked = sorted(scores.items(), key=lambda item: item[1], reverse=True)
     winner, top = ranked[0]
-    if len(ranked) > 1 and ranked[1][1] >= top:
+    runner_up = ranked[1][1] if len(ranked) > 1 else 0
+    if top - runner_up < _SITE_TYPE_MARGIN:
         snapshot.site_type = "mixed"
     else:
         snapshot.site_type = winner

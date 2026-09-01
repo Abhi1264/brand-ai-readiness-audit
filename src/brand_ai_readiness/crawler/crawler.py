@@ -67,6 +67,7 @@ class BoundedCrawler:
         self._seq = 0
         self._seen: set[str] = set()
         self._enqueued: set[str] = set()
+        self._family_counts: dict[str, int] = {}
         self.pages: list[FetchedPage] = []
         self.blocked: list[str] = []
         self.robots_policy: RobotsPolicy = empty_robots(self.start_url)
@@ -84,6 +85,21 @@ class BoundedCrawler:
 
         return (urlparse(url).hostname or "").lower() in extras
 
+    def _url_family(self, url: str) -> str | None:
+        """Group key for sibling URLs under a deep shared prefix.
+
+        Only paths at least three segments deep have a family: those are facet
+        or filter families ("/jobs/location/warsaw-poland"). Top-level sections
+        like "/products/widget" or a locale prefix like "/en/about" are left
+        uncapped, because those are the pages an audit actually wants.
+        """
+        from urllib.parse import urlparse
+
+        segments = [segment for segment in (urlparse(url).path or "/").split("/") if segment]
+        if len(segments) < 3:
+            return None
+        return "/".join(segments[:-1])
+
     def enqueue(self, url: str, *, from_sitemap: bool = False, from_homepage: bool = False) -> None:
         normalized = normalize_url(url, self.start_url)
         if not normalized or normalized in self._seen or normalized in self._enqueued:
@@ -92,6 +108,12 @@ class BoundedCrawler:
             return
         if not self._allowed_host(normalized):
             return
+        family = self._url_family(normalized)
+        if family is not None:
+            seen_in_family = self._family_counts.get(family, 0)
+            if seen_in_family >= self.budget.max_pages_per_url_family:
+                return
+            self._family_counts[family] = seen_in_family + 1
         self._seq += 1
         priority = -url_priority(normalized, from_sitemap=from_sitemap, from_homepage=from_homepage)
         heapq.heappush(

@@ -67,6 +67,9 @@ class AuditBudget:
     enable_render: bool = True
     enable_llm_polish: bool = False
     enable_access_probe: bool = True
+    # Max pages crawled from one deep URL family (e.g. /jobs/location/*), so a
+    # single facet family cannot consume the whole page budget.
+    max_pages_per_url_family: int = 8
     user_agent: str = DEFAULT_USER_AGENT
     extra_allowed_hosts: tuple[str, ...] = field(default_factory=tuple)
 
