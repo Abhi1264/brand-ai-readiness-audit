@@ -2,7 +2,7 @@
 name: structured-data-audit
 description: Infer what a website represents, then check whether JSON-LD, schema.org, Open Graph, and meta tags describe those entities consistently with visible content. Use when auditing machine-understandable Organization, Product, Article, or LocalBusiness markup. Do not demand schema types the site does not need.
 license: MIT
-compatibility: Requires Python 3.11+. Operates on crawled HTML; no extra services.
+compatibility: Requires Python 3.11+. Operates on crawled HTML; no extra services. Skill scripts import the marketplace's brand_ai_readiness package - run `pip install -e .` from the marketplace root, or run from a checkout that contains src/.
 metadata:
   author: brand-ai-readiness-audit
   version: "1.0.0"

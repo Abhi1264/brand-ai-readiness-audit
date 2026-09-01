@@ -2,7 +2,7 @@
 name: audit-orchestrator
 description: Compose crawl, AI-crawler access, structured-data, freshness/entity, and engagement audits into one validated report of AI-discoverability and on-site-engagement findings. Use when asked to audit a website URL, diagnose why a brand is missing or misrepresented in AI assistants, or produce prioritized fix recommendations. Recommend-only; never modify the live site.
 license: MIT
-compatibility: Requires Python 3.11+ and network GET/HEAD access to the target origin. Playwright optional. No API key required.
+compatibility: Requires Python 3.11+ and network GET/HEAD access to the target origin. Playwright optional. No API key required. Skill scripts import the marketplace's brand_ai_readiness package - run `pip install -e .` from the marketplace root, or run from a checkout that contains src/.
 metadata:
   author: brand-ai-readiness-audit
   version: "1.0.0"

@@ -2,7 +2,7 @@
 name: crawl-render-audit
 description: Determine whether automated systems can reach and read a website's important content. Checks robots.txt, whether the origin actually serves named AI crawlers (GPTBot, ClaudeBot, PerplexityBot) the same content it serves a browser, HTTP status, redirects, canonicals, sitemaps, raw HTML vs browser-rendered HTML, and image-only facts. Use when auditing crawlability, JS-render gaps, or machine-readability. Read-only; never bypass robots.txt.
 license: MIT
-compatibility: Requires Python 3.11+ and GET/HEAD network access. Playwright optional for rendering.
+compatibility: Requires Python 3.11+ and GET/HEAD network access. Playwright optional for rendering. Skill scripts import the marketplace's brand_ai_readiness package - run `pip install -e .` from the marketplace root, or run from a checkout that contains src/.
 metadata:
   author: brand-ai-readiness-audit
   version: "1.0.0"

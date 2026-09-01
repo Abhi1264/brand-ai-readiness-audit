@@ -2,7 +2,7 @@
 name: engagement-audit
 description: Evaluate whether a first-time visitor can tell who the site is, what it offers, who it is for, and what to do next. Checks homepage orientation, navigation labels, internal links, dead ends, broken paths, context retention on deep pages, and measurable mobile blockers. Use when auditing on-site engagement. Evidence only; no aesthetic opinions.
 license: MIT
-compatibility: Requires Python 3.11+. Mobile checks need Playwright when available.
+compatibility: Requires Python 3.11+. Mobile checks need Playwright when available. Skill scripts import the marketplace's brand_ai_readiness package - run `pip install -e .` from the marketplace root, or run from a checkout that contains src/.
 metadata:
   author: brand-ai-readiness-audit
   version: "1.0.0"

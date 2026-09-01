@@ -2,7 +2,7 @@
 name: freshness-entity-audit
 description: Extract organizations, products, and factual claims from a website and check whether names are consistent, entities are disambiguated, and time-sensitive pages have real freshness signals. Use when auditing stale content, entity ambiguity, or uncorroborated claims. Never fabricate claims or treat missing search as proof a claim is false.
 license: MIT
-compatibility: Requires Python 3.11+. External corroboration is optional and off by default.
+compatibility: Requires Python 3.11+. External corroboration is optional and off by default. Skill scripts import the marketplace's brand_ai_readiness package - run `pip install -e .` from the marketplace root, or run from a checkout that contains src/.
 metadata:
   author: brand-ai-readiness-audit
   version: "1.0.0"
