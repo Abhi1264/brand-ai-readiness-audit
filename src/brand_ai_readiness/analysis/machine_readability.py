@@ -13,11 +13,17 @@ _FACTISH_ALT = re.compile(
 
 def image_only_fact_pages(pages: list[FetchedPage]) -> list[dict[str, object]]:
     flagged: list[dict[str, object]] = []
+    important_roles = {"product", "pricing", "homepage"}
     for page in pages:
+        text_prices = prices_in_text(page.text)
+        need_alts = not text_prices
+        need_canvas = page.word_count < 40
+        need_img = page.word_count < 25 and page.role in important_roles
+        if not need_alts and not need_canvas and not need_img:
+            continue
         soup = parse_html(page.html)
         counts = has_canvas_or_embed(soup)
-        alts = image_alts(soup)
-        text_prices = prices_in_text(page.text)
+        alts = image_alts(soup) if need_alts else []
         alt_facts = [alt for alt in alts if _FACTISH_ALT.search(alt)]
         text = page.text or ""
         if alt_facts and not text_prices:
@@ -42,7 +48,7 @@ def image_only_fact_pages(pages: list[FetchedPage]) -> list[dict[str, object]]:
                 }
             )
             continue
-        if page.word_count < 25 and counts["img"] >= 3 and page.role in {"product", "pricing", "homepage"}:
+        if page.word_count < 25 and counts["img"] >= 3 and page.role in important_roles:
             flagged.append(
                 {
                     "url": page.url,

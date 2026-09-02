@@ -6,6 +6,20 @@ from typing import Any
 from brand_ai_readiness.analysis.html import json_ld_blocks, meta_content, open_graph, parse_html, prices_in_text
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage, StructuredBlock
 
+_JSONLD_KEEP = {
+    "name",
+    "description",
+    "url",
+    "sku",
+    "price",
+    "priceCurrency",
+    "brand",
+    "sameAs",
+    "datePublished",
+    "dateModified",
+    "offers",
+}
+
 
 def _walk_jsonld(node: Any, acc: list[dict[str, Any]]) -> None:
     if isinstance(node, list):
@@ -52,21 +66,7 @@ def _blocks_from_html(url: str, html: str) -> list[StructuredBlock]:
                     data={
                         key: value
                         for key, value in node.items()
-                        if key
-                        in {
-                            "name",
-                            "description",
-                            "url",
-                            "sku",
-                            "price",
-                            "priceCurrency",
-                            "brand",
-                            "sameAs",
-                            "datePublished",
-                            "dateModified",
-                            "offers",
-                        }
-                        or not isinstance(value, (dict, list))
+                        if key in _JSONLD_KEEP or not isinstance(value, (dict, list))
                     },
                 )
             )
@@ -101,15 +101,36 @@ def collect_structured(snapshot: CrawlSnapshot) -> CrawlSnapshot:
     return snapshot
 
 
-def jsonld_types_on(snapshot: CrawlSnapshot, url: str | None = None) -> set[str]:
-    types: set[str] = set()
+def jsonld_types_by_url(snapshot: CrawlSnapshot) -> dict[str, set[str]]:
+    by_url: dict[str, set[str]] = {}
     for block in snapshot.structured:
         if block.kind != "jsonld":
             continue
-        if url and block.url != url:
-            continue
-        types.update(block.types)
+        by_url.setdefault(block.url, set()).update(block.types)
+    return by_url
+
+
+def jsonld_types_on(snapshot: CrawlSnapshot, url: str | None = None) -> set[str]:
+    by_url = jsonld_types_by_url(snapshot)
+    if url:
+        return set(by_url.get(url, ()))
+    types: set[str] = set()
+    for group in by_url.values():
+        types.update(group)
     return types
+
+
+def jsonld_dates_by_url(snapshot: CrawlSnapshot) -> dict[str, dict[str, str]]:
+    by_url: dict[str, dict[str, str]] = {}
+    for block in snapshot.structured:
+        if block.kind != "jsonld":
+            continue
+        dates = by_url.setdefault(block.url, {})
+        for key in ("datePublished", "dateModified"):
+            value = block.data.get(key)
+            if isinstance(value, str):
+                dates[key] = value
+    return by_url
 
 
 def malformed_jsonld_pages(snapshot: CrawlSnapshot) -> list[str]:
@@ -133,7 +154,8 @@ def name_mismatches(page: FetchedPage, snapshot: CrawlSnapshot) -> list[tuple[st
         parts = [part for part in token.split() if len(part) > 2]
         if parts and sum(part in visible or part in title for part in parts) / len(parts) >= 0.6:
             continue
-        if title and title.split("|")[0].strip() and title.split("|")[0].strip() not in token:
+        title_lead = title.split("|")[0].strip()
+        if title_lead and title_lead not in token:
             mismatches.append((name, page.title or visible[:80]))
     return mismatches
 

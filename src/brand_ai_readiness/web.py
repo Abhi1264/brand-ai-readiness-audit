@@ -55,6 +55,14 @@ async def perform_audit(url: str, max_pages: int) -> dict[str, Any]:
     return report.model_dump_public()
 
 
+async def audited_payload(url: str, max_pages: int) -> dict[str, Any]:
+    try:
+        target = normalize_public_url(url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return await perform_audit(target, max_pages)
+
+
 def checked_label(iso: str | None) -> str:
     if not iso:
         return "just now"
@@ -101,20 +109,12 @@ def home(request: Request, url: str = "") -> HTMLResponse:
 
 @app.get("/api/audit")
 async def audit_get(url: str, max_pages: int = 12) -> dict[str, Any]:
-    try:
-        target = normalize_public_url(url)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return await perform_audit(target, max_pages)
+    return await audited_payload(url, max_pages)
 
 
 @app.post("/api/audit")
 async def audit_post(payload: AuditRequest) -> dict[str, Any]:
-    try:
-        target = normalize_public_url(payload.url)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return await perform_audit(target, payload.max_pages)
+    return await audited_payload(payload.url, payload.max_pages)
 
 
 @app.post("/audit")
@@ -123,14 +123,11 @@ async def audit_form(
     url: str = Form(...),
     max_pages: int = Form(12),
 ):
-    wants_json = "application/json" in (request.headers.get("accept") or "")
+    if "application/json" in (request.headers.get("accept") or ""):
+        return await audited_payload(url, max_pages)
     try:
         target = normalize_public_url(url)
     except ValueError as exc:
-        if wants_json:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
         return render_page(request, error=str(exc), url=url, max_pages=max_pages, status_code=400)
     payload = await perform_audit(target, max_pages)
-    if wants_json:
-        return payload
     return render_page(request, url=target, report=payload, max_pages=max_pages)

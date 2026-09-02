@@ -23,8 +23,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     raw = Path(args.raw_html).read_text(encoding="utf-8")
     rendered = Path(args.rendered_html).read_text(encoding="utf-8")
-    page = FetchedPage(url=args.url, final_url=args.url, html=raw, text=visible_text(raw), word_count=word_count(visible_text(raw)))
-    rendered_page = RenderedPage(url=args.url, html=rendered, visible_text=visible_text(rendered), viewport="desktop")
+    raw_text = visible_text(raw)
+    rendered_text = visible_text(rendered)
+    page = FetchedPage(
+        url=args.url, final_url=args.url, html=raw, text=raw_text, word_count=word_count(raw_text)
+    )
+    rendered_page = RenderedPage(
+        url=args.url, html=rendered, visible_text=rendered_text, viewport="desktop"
+    )
     gap = compare_raw_and_rendered(page, rendered_page)
     print(
         json.dumps(

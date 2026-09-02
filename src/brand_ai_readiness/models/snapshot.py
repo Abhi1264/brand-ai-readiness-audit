@@ -5,6 +5,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 PageFetchStatus = Literal["success", "partial", "failed"]
+BotClass = Literal["browser", "search", "training"]
+AccessProbeStatus = Literal["complete", "partial", "unavailable", "skipped"]
 SiteType = Literal[
     "ecommerce",
     "article",
@@ -94,7 +96,7 @@ class AccessProbeResult(BaseModel):
     is_ai_crawler: bool = False
     # "search" bots decide citation; "training" bots do not. Only the former
     # can raise a discoverability finding.
-    bot_class: Literal["browser", "search", "training"] = "browser"
+    bot_class: BotClass = "browser"
     status_code: int = 0
     method: str = "HEAD"
     body_bytes: int = 0
@@ -164,16 +166,13 @@ class CrawlSnapshot(BaseModel):
     structured: list[StructuredBlock] = Field(default_factory=list)
     corroboration_status: Literal["unavailable", "partial", "complete"] = "unavailable"
     access_probes: list[AccessProbeResult] = Field(default_factory=list)
-    access_probe_status: Literal["complete", "partial", "unavailable", "skipped"] = "skipped"
+    access_probe_status: AccessProbeStatus = "skipped"
 
     def browser_probe(self) -> AccessProbeResult | None:
         for probe in self.access_probes:
             if not probe.is_ai_crawler:
                 return probe
         return None
-
-    def ai_probes(self) -> list[AccessProbeResult]:
-        return [probe for probe in self.access_probes if probe.is_ai_crawler]
 
     def search_probes(self) -> list[AccessProbeResult]:
         return [probe for probe in self.access_probes if probe.bot_class == "search"]

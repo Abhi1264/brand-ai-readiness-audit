@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from brand_ai_readiness.analysis.html import (
     cta_matches,
     headings,
-    json_ld_blocks,
+    jsonld_ok_count,
     parse_html,
     prices_in_text,
     visible_text,
@@ -43,11 +43,11 @@ def compare_raw_and_rendered(page: FetchedPage, rendered: RenderedPage) -> Rende
     rendered_prices = prices_in_text(rendered_text)
     raw_ctas = cta_matches(raw_text)
     rendered_ctas = cta_matches(rendered_text)
-    raw_jsonld = len([block for block, err in json_ld_blocks(raw_soup) if err is None])
+    raw_jsonld = jsonld_ok_count(raw_soup)
     if rendered.jsonld_count:
         rendered_jsonld = rendered.jsonld_count
     elif rendered_soup is not None:
-        rendered_jsonld = len([block for block, err in json_ld_blocks(rendered_soup) if err is None])
+        rendered_jsonld = jsonld_ok_count(rendered_soup)
     else:
         rendered_jsonld = 0
     raw_heads = [item["text"] for item in headings(raw_soup)]

@@ -75,7 +75,7 @@ def parse_sitemap_document(
     parent_is_index = root.tag.split("}")[-1].lower() == "sitemapindex"
     for node in root.iter():
         tag = str(node.tag)
-        if not (tag in _LOC_TAGS or tag.endswith("}loc") or tag == "loc"):
+        if tag not in _LOC_TAGS and not tag.endswith("}loc"):
             continue
         loc = (node.text or "").strip()
         if not loc:

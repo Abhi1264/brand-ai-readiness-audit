@@ -3,6 +3,7 @@ from __future__ import annotations
 from brand_ai_readiness.analysis.entities import is_under_specified, naming_variants, organization_names
 from brand_ai_readiness.analysis.finding_factory import make_finding
 from brand_ai_readiness.analysis.freshness import page_freshness
+from brand_ai_readiness.analysis.structured import jsonld_dates_by_url
 from brand_ai_readiness.models.findings import Finding
 from brand_ai_readiness.models.snapshot import CrawlSnapshot
 
@@ -87,16 +88,11 @@ def entity_findings(snapshot: CrawlSnapshot) -> list[Finding]:
 
     stale = []
     undated_sensitive = []
+    dates_by_url = jsonld_dates_by_url(snapshot)
     for page in pages:
         if page.role not in {"homepage", "about", "product", "pricing", "article"}:
             continue
-        dates = {}
-        for block in snapshot.structured:
-            if block.url == page.url and block.kind == "jsonld":
-                for key in ("datePublished", "dateModified"):
-                    if key in block.data and isinstance(block.data[key], str):
-                        dates[key] = block.data[key]
-        signal = page_freshness(page, dates)
+        signal = page_freshness(page, dates_by_url.get(page.url))
         if signal.status == "stale_time_sensitive":
             stale.append(signal)
         if signal.status == "freshness_cannot_be_established" and signal.time_sensitive and page.role in {"pricing", "article"}:

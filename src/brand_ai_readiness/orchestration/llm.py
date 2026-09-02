@@ -59,9 +59,3 @@ def polish_actions(findings: list[Finding]) -> list[Finding]:
     except Exception as exc:  # noqa: BLE001 — polish must never fail the audit
         logger.info("LLM polish skipped: %s", exc)
     return findings
-
-
-def maybe_polish(findings: list[Finding], enabled: bool) -> list[Finding]:
-    if not enabled:
-        return findings
-    return polish_actions(findings)

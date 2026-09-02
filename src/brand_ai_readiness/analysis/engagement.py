@@ -4,6 +4,8 @@ import re
 from dataclasses import dataclass, field
 from typing import TypedDict
 
+from bs4 import BeautifulSoup
+
 from brand_ai_readiness.analysis.html import cta_matches, headings, parse_html
 from brand_ai_readiness.analysis.pageview import effective_page
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage, RenderedPage
@@ -45,8 +47,8 @@ class HomepageOrientation(TypedDict):
     word_count: int
 
 
-def homepage_orientation(page: FetchedPage) -> HomepageOrientation:
-    soup = parse_html(page.html)
+def homepage_orientation(page: FetchedPage, soup: BeautifulSoup | None = None) -> HomepageOrientation:
+    soup = soup if soup is not None else parse_html(page.html)
     heads = headings(soup)
     h1s = [item["text"] for item in heads if item["level"] == "h1"]
     text = page.text or ""
@@ -60,8 +62,8 @@ def homepage_orientation(page: FetchedPage) -> HomepageOrientation:
     )
 
 
-def nav_quality(page: FetchedPage) -> tuple[int, list[str]]:
-    soup = parse_html(page.html)
+def nav_quality(page: FetchedPage, soup: BeautifulSoup | None = None) -> tuple[int, list[str]]:
+    soup = soup if soup is not None else parse_html(page.html)
     nav = soup.find("nav") or soup.find(attrs={"role": "navigation"})
     labels: list[str] = []
     confusing: list[str] = []
@@ -125,6 +127,11 @@ def missing_continuation(snapshot: CrawlSnapshot) -> list[str]:
 
 
 def mobile_issues(rendered: list[RenderedPage]) -> list[dict[str, object]]:
+    desktop_by_url = {
+        page.url: page
+        for page in rendered
+        if page.viewport == "desktop" and not page.error
+    }
     issues: list[dict[str, object]] = []
     for page in rendered:
         if page.viewport != "mobile" or page.error:
@@ -137,10 +144,7 @@ def mobile_issues(rendered: list[RenderedPage]) -> list[dict[str, object]]:
         if not page.nav_visible:
             problems.append("navigation_not_visible")
         if not page.cta_visible:
-            desktop = next(
-                (item for item in rendered if item.url == page.url and item.viewport == "desktop" and not item.error),
-                None,
-            )
+            desktop = desktop_by_url.get(page.url)
             if desktop and desktop.cta_visible:
                 problems.append("cta_disappeared_on_mobile")
         if problems:
@@ -154,13 +158,14 @@ def analyze_engagement(snapshot: CrawlSnapshot) -> EngagementSignals:
         homepage = effective_page(homepage, snapshot)
     signals = EngagementSignals()
     if homepage:
-        orient = homepage_orientation(homepage)
+        soup = parse_html(homepage.html)
+        orient = homepage_orientation(homepage, soup)
         signals.has_h1 = orient["has_h1"]
         signals.h1_text = orient["h1_text"]
         signals.identity_statement = orient["identity_statement"]
         signals.audience_statement = orient["audience_statement"]
         signals.cta_texts = orient["cta_texts"]
-        nav_count, confusing = nav_quality(homepage)
+        nav_count, confusing = nav_quality(homepage, soup)
         signals.nav_count = nav_count
         signals.confusing_labels = confusing
     signals.dead_end_urls = dead_ends(snapshot)

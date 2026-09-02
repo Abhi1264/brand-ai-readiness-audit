@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from typing import Any
 from urllib.parse import urljoin
 
@@ -10,6 +11,7 @@ from bs4 import BeautifulSoup, Comment, Tag
 from brand_ai_readiness.crawler.urls import is_http_url, is_probably_asset, normalize_url, same_origin
 
 _WS = re.compile(r"\s+")
+_WORD = re.compile(r"\b\w+\b")
 _PRICE = re.compile(r"(?:USD|INR|EUR|GBP|\$|€|£|₹)\s?\d[\d,]*(?:\.\d{2})?", re.I)
 _CTA_WORDS = re.compile(
     r"\b(get started|start free|start now|sign up|signup|try free|book (a )?demo|"
@@ -35,7 +37,7 @@ def visible_text(soup: BeautifulSoup | str) -> str:
 
 
 def word_count(text: str) -> int:
-    return len(re.findall(r"\b\w+\b", text or ""))
+    return len(_WORD.findall(text or ""))
 
 
 def headings(soup: BeautifulSoup) -> list[dict[str, str]]:
@@ -99,14 +101,18 @@ def extract_links(soup: BeautifulSoup, page_url: str) -> tuple[list[str], list[s
     return internal, external
 
 
+@lru_cache(maxsize=64)
+def _meta_name_pattern(name: str) -> re.Pattern[str]:
+    return re.compile(rf"^{re.escape(name)}$", re.I)
+
+
 def meta_content(soup: BeautifulSoup, *names: str) -> str | None:
     for name in names:
-        node = soup.find("meta", attrs={"name": re.compile(rf"^{re.escape(name)}$", re.I)})
-        if isinstance(node, Tag) and node.get("content"):
-            return str(node.get("content")).strip()
-        node = soup.find("meta", attrs={"property": re.compile(rf"^{re.escape(name)}$", re.I)})
-        if isinstance(node, Tag) and node.get("content"):
-            return str(node.get("content")).strip()
+        pattern = _meta_name_pattern(name)
+        for attr in ("name", "property"):
+            node = soup.find("meta", attrs={attr: pattern})
+            if isinstance(node, Tag) and node.get("content"):
+                return str(node.get("content")).strip()
     return None
 
 
@@ -136,6 +142,10 @@ def json_ld_blocks(soup: BeautifulSoup) -> list[tuple[dict[str, Any] | list[Any]
     return blocks
 
 
+def jsonld_ok_count(soup: BeautifulSoup) -> int:
+    return sum(error is None for _parsed, error in json_ld_blocks(soup))
+
+
 def prices_in_text(text: str) -> list[str]:
     return list(dict.fromkeys(match.group(0) for match in _PRICE.finditer(text or "")))
 
@@ -154,10 +164,11 @@ def image_alts(soup: BeautifulSoup) -> list[str]:
 
 
 def has_canvas_or_embed(soup: BeautifulSoup) -> dict[str, int]:
-    return {
-        "canvas": len(soup.find_all("canvas")),
-        "iframe": len(soup.find_all("iframe")),
-        "embed": len(soup.find_all(["embed", "object"])),
-        "svg": len(soup.find_all("svg")),
-        "img": len(soup.find_all("img")),
-    }
+    counts = {"canvas": 0, "iframe": 0, "embed": 0, "svg": 0, "img": 0}
+    for tag in soup.find_all(["canvas", "iframe", "embed", "object", "svg", "img"]):
+        name = tag.name
+        if name == "object":
+            counts["embed"] += 1
+        elif name in counts:
+            counts[name] += 1
+    return counts

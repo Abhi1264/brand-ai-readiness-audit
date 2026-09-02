@@ -22,12 +22,7 @@ def compute_scorecard(
         crawlability -= min(50, int(40 * blocked / max(n + blocked, 1)) + 15)
     if failed:
         crawlability -= min(30, failed * 8)
-    important_fail = [
-        page
-        for page in snapshot.pages
-        if page.role in {"homepage", "product", "about"} and page.fetch_status == "failed"
-    ]
-    if any(page.role == "homepage" and page.fetch_status == "failed" for page in important_fail):
+    if any(page.role == "homepage" and page.fetch_status == "failed" for page in snapshot.pages):
         crawlability = min(crawlability, 25)
     # An origin that refuses AI SEARCH crawlers is not crawlable by the systems
     # this audit is about, however healthy it looks to the audit's own

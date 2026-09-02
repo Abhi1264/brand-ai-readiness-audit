@@ -4,6 +4,7 @@ from brand_ai_readiness.analysis.site_type import expected_schema_types, infer_s
 from brand_ai_readiness.config import AuditBudget
 from brand_ai_readiness.crawler.crawler import BoundedCrawler
 from brand_ai_readiness.crawler.priority import classify_role
+from brand_ai_readiness.models.snapshot import PageRole
 from tests.helpers import page_from_html, snapshot_from_pages
 
 HOME = "https://fixture.test/"
@@ -42,10 +43,10 @@ DOCS_HOME = """<!doctype html><html lang="en"><head><meta charset="utf-8">
 <p>Getting started guides and the API reference for the platform.</p></body></html>"""
 
 
-def _snapshot_with_roles(roles: list[str], home_html: str = BODY):
+def _snapshot_with_roles(roles: list[PageRole], home_html: str = BODY):
     pages = [page_from_html(HOME, home_html, role="homepage")]
     for index, role in enumerate(roles):
-        pages.append(page_from_html(f"{HOME}p{index}", BODY, role=role))  # type: ignore[arg-type]
+        pages.append(page_from_html(f"{HOME}p{index}", BODY, role=role))
     return snapshot_from_pages(pages, start_url=HOME)
 
 

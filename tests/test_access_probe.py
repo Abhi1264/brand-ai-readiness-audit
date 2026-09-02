@@ -3,7 +3,7 @@ from __future__ import annotations
 from brand_ai_readiness.analysis.checks_crawl import crawl_findings
 from brand_ai_readiness.config import AuditBudget
 from brand_ai_readiness.crawler.crawler import crawl_site_sync
-from brand_ai_readiness.models.snapshot import AccessProbeResult, CrawlSnapshot
+from brand_ai_readiness.models.snapshot import AccessProbeResult, BotClass, CrawlSnapshot
 from brand_ai_readiness.scoring.scorecard import compute_scorecard
 from tests.helpers import page_from_html, snapshot_from_pages
 
@@ -32,7 +32,7 @@ def _probe(
     agent: str,
     status: int,
     *,
-    bot_class: str = "search",
+    bot_class: BotClass = "search",
     robots_allows: bool = True,
     body: int = 900,
 ):
@@ -40,7 +40,7 @@ def _probe(
         agent=agent,
         user_agent=f"test/{agent}",
         is_ai_crawler=bot_class != "browser",
-        bot_class=bot_class,  # type: ignore[arg-type]
+        bot_class=bot_class,
         status_code=status,
         method="HEAD",
         body_bytes=body,

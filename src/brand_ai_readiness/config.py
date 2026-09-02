@@ -95,6 +95,3 @@ class AuditBudget:
     max_pages_per_url_family: int = 8
     user_agent: str = DEFAULT_USER_AGENT
     extra_allowed_hosts: tuple[str, ...] = field(default_factory=tuple)
-
-
-DEFAULT_BUDGET = AuditBudget()

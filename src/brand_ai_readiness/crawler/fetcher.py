@@ -52,28 +52,18 @@ async def fetch_bytes(
                 headers=headers,
             )
             content_type = response.headers.get("content-type", "")
-            body = response.content[: budget.max_response_bytes]
+            headers_out = {k.lower(): v for k, v in response.headers.items()}
             chain = [str(item.url) for item in response.history] + [str(response.url)]
-            if len(chain) > budget.max_redirects + 1:
-                return FetchResult(
-                    url=url,
-                    final_url=str(response.url),
-                    status_code=response.status_code,
-                    content_type=content_type,
-                    body=b"",
-                    headers={k.lower(): v for k, v in response.headers.items()},
-                    redirect_chain=chain,
-                    error="excessive_redirects",
-                    retry_count=retries,
-                )
+            excessive = len(chain) > budget.max_redirects + 1
             return FetchResult(
                 url=url,
                 final_url=str(response.url),
                 status_code=response.status_code,
                 content_type=content_type,
-                body=body,
-                headers={k.lower(): v for k, v in response.headers.items()},
+                body=b"" if excessive else response.content[: budget.max_response_bytes],
+                headers=headers_out,
                 redirect_chain=chain,
+                error="excessive_redirects" if excessive else None,
                 retry_count=retries,
             )
         except httpx.TimeoutException:

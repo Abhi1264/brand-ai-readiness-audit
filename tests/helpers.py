@@ -13,8 +13,6 @@ from brand_ai_readiness.analysis.html import (
     visible_text,
     word_count,
 )
-from urllib.parse import urlparse
-
 from brand_ai_readiness.crawler.priority import classify_role
 from brand_ai_readiness.crawler.robots import parse_robots
 from brand_ai_readiness.crawler.urls import site_label
@@ -60,7 +58,7 @@ def page_from_html(
         noindex=has_noindex(robots),
         internal_links=internal,
         external_links=external,
-        role=role or classify_role(url, is_start=urlparse(url).path in {"", "/"}),
+        role=role or classify_role(url),
         word_count=word_count(text),
         heading_count=len(headings(soup)),
     )

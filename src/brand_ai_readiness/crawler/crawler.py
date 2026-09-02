@@ -4,7 +4,7 @@ import asyncio
 import heapq
 import logging
 from dataclasses import replace
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -39,6 +39,7 @@ from brand_ai_readiness.crawler.urls import (
 )
 from brand_ai_readiness.models.snapshot import (
     AccessProbeResult,
+    AccessProbeStatus,
     CrawlSnapshot,
     CrawlStats,
     FetchedPage,
@@ -73,7 +74,7 @@ class BoundedCrawler:
         self.robots_policy: RobotsPolicy = empty_robots(self.start_url)
         self.sitemap = SitemapInfo()
         self.access_probes: list[AccessProbeResult] = []
-        self.access_probe_status: str = "skipped"
+        self.access_probe_status: AccessProbeStatus = "skipped"
 
     def _allowed_host(self, url: str) -> bool:
         if same_origin(url, self.start_url):
@@ -81,8 +82,6 @@ class BoundedCrawler:
         if not self.budget.same_origin_only:
             return True
         extras = {host.lower() for host in self.budget.extra_allowed_hosts}
-        from urllib.parse import urlparse
-
         return (urlparse(url).hostname or "").lower() in extras
 
     def _url_family(self, url: str) -> str | None:
@@ -93,8 +92,6 @@ class BoundedCrawler:
         like "/products/widget" or a locale prefix like "/en/about" are left
         uncapped, because those are the pages an audit actually wants.
         """
-        from urllib.parse import urlparse
-
         segments = [segment for segment in (urlparse(url).path or "/").split("/") if segment]
         if len(segments) < 3:
             return None
@@ -174,10 +171,10 @@ class BoundedCrawler:
                 fetch_status="failed",
                 error="robots_disallow",
                 robots_blocked=True,
-                role=classify_role(url, is_start=url == self.start_url),
+                role=classify_role(url),
             )
         result = await fetch_bytes(client, url, self.budget)
-        role = classify_role(result.final_url or url, is_start=url == self.start_url)
+        role = classify_role(result.final_url or url)
         if result.error and result.status_code == 0:
             return FetchedPage(
                 url=url,
@@ -342,7 +339,7 @@ class BoundedCrawler:
             sitemap=self.sitemap,
             stats=stats,
             access_probes=self.access_probes,
-            access_probe_status=self.access_probe_status,  # type: ignore[arg-type]
+            access_probe_status=self.access_probe_status,
         )
 
 

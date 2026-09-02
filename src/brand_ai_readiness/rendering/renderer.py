@@ -5,7 +5,7 @@ import logging
 from collections.abc import Coroutine
 from typing import Any, Literal, TypeVar
 
-from brand_ai_readiness.analysis.html import json_ld_blocks, parse_html, visible_text, word_count
+from brand_ai_readiness.analysis.html import jsonld_ok_count, parse_html, visible_text, word_count
 from brand_ai_readiness.config import AuditBudget
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage, RenderedPage
 from brand_ai_readiness.rendering.select import select_representative_pages
@@ -45,7 +45,7 @@ _T = TypeVar("_T")
 
 def _page_from_metrics(url: str, html: str, metrics: dict[str, Any], label: str) -> RenderedPage:
     text = metrics.get("text") or visible_text(html)
-    jsonld = len([block for block, err in json_ld_blocks(parse_html(html)) if err is None])
+    jsonld = jsonld_ok_count(parse_html(html))
     return RenderedPage(
         url=url,
         html=html,

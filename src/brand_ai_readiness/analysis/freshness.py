@@ -45,13 +45,15 @@ def _parse_date(value: str | None) -> datetime | None:
 
 
 def page_freshness(page: FetchedPage, structured_dates: dict[str, str] | None = None) -> FreshnessSignal:
-    soup = parse_html(page.html)
-    published = (structured_dates or {}).get("datePublished") or meta_content(
-        soup, "article:published_time", "datePublished", "pubdate", "date"
-    )
-    modified = (structured_dates or {}).get("dateModified") or meta_content(
-        soup, "article:modified_time", "dateModified", "og:updated_time"
-    )
+    structured = structured_dates or {}
+    published = structured.get("datePublished")
+    modified = structured.get("dateModified")
+    if not published or not modified:
+        soup = parse_html(page.html)
+        if not published:
+            published = meta_content(soup, "article:published_time", "datePublished", "pubdate", "date")
+        if not modified:
+            modified = meta_content(soup, "article:modified_time", "dateModified", "og:updated_time")
     visible = None
     match = _VISIBLE_DATE.search(page.text or "")
     if match:

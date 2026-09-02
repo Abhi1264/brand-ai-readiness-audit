@@ -31,13 +31,5 @@ def dedupe_findings(findings: list[Finding]) -> list[Finding]:
             grouped[key] = finding
             order.append(key)
             continue
-        existing = grouped[key]
-        overlap = set(existing.source_urls) & set(finding.source_urls)
-        same_title_family = existing.mechanism_code == finding.mechanism_code
-        if overlap or same_title_family:
-            grouped[key] = _merge(existing, finding)
-        else:
-            alt = f"{key}:{finding.id}"
-            grouped[alt] = finding
-            order.append(alt)
+        grouped[key] = _merge(grouped[key], finding)
     return [grouped[key] for key in order]

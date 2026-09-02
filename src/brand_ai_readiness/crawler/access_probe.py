@@ -27,7 +27,7 @@ from brand_ai_readiness.config import (
 )
 from brand_ai_readiness.crawler.fetcher import fetch_bytes
 from brand_ai_readiness.crawler.robots import RobotsPolicy
-from brand_ai_readiness.models.snapshot import AccessProbeResult
+from brand_ai_readiness.models.snapshot import AccessProbeResult, BotClass
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ async def _probe_one(
     agent: str,
     user_agent: str,
     *,
-    bot_class: str,
+    bot_class: BotClass,
     robots_allows: bool,
 ) -> AccessProbeResult:
     headers = {"User-Agent": user_agent}
@@ -70,7 +70,7 @@ async def _probe_one(
         agent=agent,
         user_agent=user_agent,
         is_ai_crawler=bot_class != "browser",
-        bot_class=bot_class,  # type: ignore[arg-type]
+        bot_class=bot_class,
         status_code=result.status_code,
         method=method,
         body_bytes=len(result.body),
@@ -114,10 +114,11 @@ async def probe_access(
             robots_allows=True,
         )
     ]
-    for bot_class, agents in (
+    class_agents: tuple[tuple[BotClass, dict[str, str]], ...] = (
         ("search", AI_SEARCH_PROBE_AGENTS),
         ("training", AI_TRAINING_PROBE_AGENTS),
-    ):
+    )
+    for bot_class, agents in class_agents:
         jobs += [
             _probe_one(
                 client,

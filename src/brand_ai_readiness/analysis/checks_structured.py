@@ -3,7 +3,7 @@ from __future__ import annotations
 from brand_ai_readiness.analysis.finding_factory import make_finding
 from brand_ai_readiness.analysis.site_type import expected_schema_types
 from brand_ai_readiness.analysis.structured import (
-    jsonld_types_on,
+    jsonld_types_by_url,
     malformed_jsonld_pages,
     name_mismatches,
     price_mismatches,
@@ -17,7 +17,10 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     pages = snapshot.successful_pages()
     n = max(len(pages), 1)
     checked_urls = [page.url for page in pages]
-    types = jsonld_types_on(snapshot)
+    types_by_url = jsonld_types_by_url(snapshot)
+    types: set[str] = set()
+    for group in types_by_url.values():
+        types.update(group)
     jsonld_pages = {block.url for block in snapshot.structured if block.kind == "jsonld" and not block.parse_error}
     malformed = list(dict.fromkeys(malformed_jsonld_pages(snapshot)))
 
@@ -98,8 +101,7 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
 
         product_pages = snapshot.pages_by_role("product")
         if product_pages and snapshot.site_type in {"ecommerce", "mixed"}:
-            with_product = [page for page in product_pages if "Product" in jsonld_types_on(snapshot, page.url)]
-            missing = [page.url for page in product_pages if page.url not in {p.url for p in with_product}]
+            missing = [page.url for page in product_pages if "Product" not in types_by_url.get(page.url, set())]
             if missing:
                 findings.append(
                     make_finding(
@@ -115,7 +117,7 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
                         source_urls=missing[:8],
                         metrics={
                             "product_pages_checked": len(product_pages),
-                            "with_product_jsonld": len(with_product),
+                            "with_product_jsonld": len(product_pages) - len(missing),
                             "missing": missing[:8],
                         },
                         action_summary="Add Product/Offer JSON-LD to every product template, matching visible name and price.",
@@ -128,7 +130,10 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
 
         article_pages = snapshot.pages_by_role("article")
         if article_pages and snapshot.site_type in {"article", "mixed"}:
-            with_article = [page for page in article_pages if any(t in jsonld_types_on(snapshot, page.url) for t in ("Article", "NewsArticle", "BlogPosting"))]
+            article_types = {"Article", "NewsArticle", "BlogPosting"}
+            with_article = [
+                page for page in article_pages if types_by_url.get(page.url, set()) & article_types
+            ]
             if len(with_article) == 0:
                 findings.append(
                     make_finding(

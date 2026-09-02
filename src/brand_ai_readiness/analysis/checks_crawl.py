@@ -222,7 +222,7 @@ def _snippet_findings(snapshot: CrawlSnapshot) -> list[Finding]:
         return []
     total = len(pages)
     policies = [
-        analyze_snippet_policy(page.url, page.html, page.headers, page.robots_meta)
+        analyze_snippet_policy(page.url, page.html, page.headers, page.robots_meta, page_text=page.text)
         for page in pages
     ]
     findings: list[Finding] = []
@@ -585,11 +585,18 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
             )
         )
 
+    rendered_desktop = {
+        item.url: item
+        for item in snapshot.rendered
+        if item.viewport == "desktop" and item.error is None
+    }
     gaps = []
+    rendered_ok = 0
     for page in success:
-        rendered = snapshot.desktop_rendered(page)
+        rendered = rendered_desktop.get(page.url) or rendered_desktop.get(page.final_url)
         if not rendered:
             continue
+        rendered_ok += 1
         gap = compare_raw_and_rendered(page, rendered)
         if gap.meaningful:
             gaps.append(gap)
@@ -606,7 +613,7 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
                 ),
                 impact="The brand can look empty or incomplete in AI answers even though a browser shows content.",
                 observation=(
-                    f"{len(gaps)} of {max(len([p for p in success if snapshot.desktop_rendered(p)]), 1)} "
+                    f"{len(gaps)} of {max(rendered_ok, 1)} "
                     f"rendered page(s) expose meaningful facts only after JavaScript execution."
                 ),
                 source_urls=[gap.url for gap in gaps],
@@ -673,7 +680,7 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
         if len(important_orphans) >= 2:
             findings.append(
                 make_finding(
-                    id="CR-010",
+                    id="CR-013",
                     category="crawlability",
                     title="Sitemap lists important URLs that were not linked from crawled pages",
                     mechanism_code="orphaned_important",
@@ -705,7 +712,7 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     if linked_404:
         findings.append(
             make_finding(
-                id="CR-011",
+                id="CR-014",
                 category="crawlability",
                 title="Broken internal links were observed during the crawl",
                 mechanism_code="broken_internal_links",

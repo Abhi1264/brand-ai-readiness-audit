@@ -7,7 +7,6 @@ from brand_ai_readiness.analysis.checks_crawl import crawl_findings
 from brand_ai_readiness.analysis.checks_engagement import engagement_findings
 from brand_ai_readiness.analysis.checks_entity import entity_findings
 from brand_ai_readiness.analysis.checks_structured import structured_findings
-from brand_ai_readiness.analysis.claims import extract_claims
 from brand_ai_readiness.analysis.engagement import EngagementSignals, analyze_engagement
 from brand_ai_readiness.analysis.entities import extract_entities
 from brand_ai_readiness.analysis.site_type import infer_site_type
@@ -19,7 +18,7 @@ from brand_ai_readiness.models.findings import Finding, PublicFinding
 from brand_ai_readiness.models.report import AuditReport, Coverage, SeveritySummary
 from brand_ai_readiness.models.snapshot import CrawlSnapshot
 from brand_ai_readiness.orchestration.dedupe import dedupe_findings
-from brand_ai_readiness.orchestration.llm import maybe_polish
+from brand_ai_readiness.orchestration.llm import polish_actions
 from brand_ai_readiness.orchestration.proactive import proactive_recommendations
 from brand_ai_readiness.rendering.renderer import render_snapshot_pages_async
 from brand_ai_readiness.scoring.prioritize import sort_findings
@@ -33,7 +32,6 @@ def enrich_snapshot(snapshot: CrawlSnapshot) -> CrawlSnapshot:
     infer_site_type(snapshot)
     collect_structured(snapshot)
     extract_entities(snapshot)
-    extract_claims(snapshot)
     return snapshot
 
 
@@ -66,7 +64,7 @@ def _coverage(snapshot: CrawlSnapshot) -> Coverage:
         limits.append(f"{snapshot.stats.pages_failed} page(s) failed to fetch.")
     if snapshot.corroboration_status == "unavailable":
         limits.append("Independent corroboration was not run (corroboration_status=unavailable).")
-    if snapshot.access_probe_status not in {"complete"}:
+    if snapshot.access_probe_status != "complete":
         limits.append(
             f"AI-crawler access probe was {snapshot.access_probe_status}; whether AI crawlers are "
             "served the same content as a browser could not be established."
@@ -159,7 +157,8 @@ async def run_audit(url: str, budget: AuditBudget | None = None) -> AuditReport:
     enrich_snapshot(snapshot)
     signals = analyze_engagement(snapshot)
     findings = collect_skill_findings(snapshot, signals)
-    findings = maybe_polish(findings, budget.enable_llm_polish)
+    if budget.enable_llm_polish:
+        findings = polish_actions(findings)
     return build_report(snapshot, findings, signals)
 
 

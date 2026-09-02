@@ -7,13 +7,13 @@ from brand_ai_readiness.models.snapshot import CrawlSnapshot, ExtractedClaim
 
 ClaimImportance = Literal["high", "medium", "low"]
 
-_PATTERNS: list[tuple[str, ClaimImportance, str]] = [
-    ("founding", "high", r"\b(?:founded|established|since)\s+(?:in\s+)?((?:19|20)\d{2})\b"),
-    ("headquarters", "high", r"\b(?:headquartered|headquarters|based)\s+in\s+([A-Z][^.]{2,60})"),
-    ("leadership", "medium", r"\b(?:CEO|founder|president|director)\b[:,]?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})"),
-    ("pricing", "high", r"\b(?:starts? at|priced at|from)\s+(\$?\d[\d,]*(?:\.\d{2})?)"),
-    ("award", "low", r"\b((?:award|certified|certification|accredited)[^.]{0,80})"),
-    ("statistic", "medium", r"\b(\d{1,3}%\s+[^.]+)"),
+_PATTERNS: list[tuple[str, ClaimImportance, re.Pattern[str]]] = [
+    ("founding", "high", re.compile(r"\b(?:founded|established|since)\s+(?:in\s+)?((?:19|20)\d{2})\b", re.I)),
+    ("headquarters", "high", re.compile(r"\b(?:headquartered|headquarters|based)\s+in\s+([A-Z][^.]{2,60})", re.I)),
+    ("leadership", "medium", re.compile(r"\b(?:CEO|founder|president|director)\b[:,]?\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})", re.I)),
+    ("pricing", "high", re.compile(r"\b(?:starts? at|priced at|from)\s+(\$?\d[\d,]*(?:\.\d{2})?)", re.I)),
+    ("award", "low", re.compile(r"\b((?:award|certified|certification|accredited)[^.]{0,80})", re.I)),
+    ("statistic", "medium", re.compile(r"\b(\d{1,3}%\s+[^.]+)", re.I)),
 ]
 
 
@@ -27,7 +27,7 @@ def extract_claims(snapshot: CrawlSnapshot) -> CrawlSnapshot:
     for page in important:
         text = page.text or ""
         for kind, importance, pattern in _PATTERNS:
-            for match in re.finditer(pattern, text, flags=re.I):
+            for match in pattern.finditer(text):
                 snippet = match.group(0).strip()
                 key = snippet.lower()
                 if key in seen or len(snippet) < 6:

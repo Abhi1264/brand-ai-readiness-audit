@@ -27,7 +27,7 @@ _FIRST_SEGMENT_ONLY: list[tuple[PageRole, re.Pattern[str]]] = [
 ]
 
 
-def classify_role(url: str, is_start: bool = False) -> PageRole:
+def classify_role(url: str) -> PageRole:
     """Assign a page role from its URL path.
 
     A role word only claims the page when it is the *first* segment (the site

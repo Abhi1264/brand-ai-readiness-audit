@@ -21,17 +21,20 @@ def drop_tracking_params(url: str) -> str:
     return urlunparse(parsed._replace(query=query))
 
 
+def _netloc(scheme: str, host: str, port: int | None) -> str:
+    if port and not (
+        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
+    ):
+        return f"{host}:{port}"
+    return host
+
+
 def _normalize_path(path: str) -> str:
     if not path:
         return "/"
     collapsed = "/".join(part for part in path.split("/") if part not in {".", ""})
     if path.startswith("/"):
         collapsed = "/" + collapsed
-    if path.endswith("/") and collapsed != "/":
-        collapsed += "/"
-    # Treat /about and /about/ as the same page for crawl de-dupe.
-    if collapsed != "/" and collapsed.endswith("/"):
-        collapsed = collapsed[:-1]
     return collapsed or "/"
 
 
@@ -48,26 +51,15 @@ def normalize_url(url: str, base: str | None = None) -> str:
     host = (parsed.hostname or "").lower()
     if not host:
         return ""
-    port = parsed.port
-    netloc = host
-    if port and not (
-        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
-    ):
-        netloc = f"{host}:{port}"
     path = _normalize_path(parsed.path)
-    return urlunparse((scheme, netloc, path, "", parsed.query, ""))
+    return urlunparse((scheme, _netloc(scheme, host, parsed.port), path, "", parsed.query, ""))
 
 
 def origin_of(url: str) -> str:
     parsed = urlparse(url)
     scheme = (parsed.scheme or "https").lower()
     host = (parsed.hostname or "").lower()
-    port = parsed.port
-    if port and not (
-        (scheme == "http" and port == 80) or (scheme == "https" and port == 443)
-    ):
-        return f"{scheme}://{host}:{port}"
-    return f"{scheme}://{host}"
+    return f"{scheme}://{_netloc(scheme, host, parsed.port)}"
 
 
 def same_origin(left: str, right: str) -> bool:

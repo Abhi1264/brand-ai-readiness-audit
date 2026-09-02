@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from bs4 import BeautifulSoup, Tag
 
-from brand_ai_readiness.analysis.html import visible_text
+from brand_ai_readiness.analysis.html import parse_html, visible_text
 
 _MAX_SNIPPET = re.compile(r"max-snippet\s*:\s*(-?\d+)", re.I)
 
@@ -69,13 +69,6 @@ class SnippetPolicy:
     def data_nosnippet_dominant(self) -> bool:
         return self.data_nosnippet_fraction >= DATA_NOSNIPPET_DOMINANT
 
-    def suppresses_ai_surfaces(self) -> bool:
-        return self.nosnippet or self.max_snippet_is_limiting or self.data_nosnippet_dominant
-
-
-def _directives(value: str | None) -> str:
-    return (value or "").lower()
-
 
 def _max_snippet_from(*values: str | None) -> int | None:
     found: list[int] = []
@@ -106,6 +99,7 @@ def analyze_snippet_policy(
     html: str,
     headers: dict[str, str] | None,
     meta_robots: str | None,
+    page_text: str | None = None,
 ) -> SnippetPolicy:
     header_value = None
     for key, value in (headers or {}).items():
@@ -113,11 +107,11 @@ def analyze_snippet_policy(
             header_value = value
             break
 
-    meta_l = _directives(meta_robots)
-    header_l = _directives(header_value)
+    meta_l = (meta_robots or "").lower()
+    header_l = (header_value or "").lower()
 
-    soup = BeautifulSoup(html, "html.parser") if html else BeautifulSoup("", "html.parser")
-    text = visible_text(soup) if html else ""
+    soup = parse_html(html)
+    text = page_text if page_text is not None else visible_text(soup)
 
     sources: list[str] = []
     if "nosnippet" in meta_l:
