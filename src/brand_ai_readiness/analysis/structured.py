@@ -150,7 +150,6 @@ def name_mismatches(page: FetchedPage, snapshot: CrawlSnapshot) -> list[tuple[st
         token = name.strip().lower()
         if token in visible or token in title:
             continue
-        # Ignore if most tokens appear.
         parts = [part for part in token.split() if len(part) > 2]
         if parts and sum(part in visible or part in title for part in parts) / len(parts) >= 0.6:
             continue

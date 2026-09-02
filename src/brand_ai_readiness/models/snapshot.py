@@ -85,17 +85,9 @@ class RobotsInfo(BaseModel):
 
 
 class AccessProbeResult(BaseModel):
-    """One diagnostic request to the same URL under a named identity.
-
-    Used to compare what a browser is served against what a named AI crawler is
-    served. Read-only, one URL, one request per agent.
-    """
-
     agent: str
     user_agent: str
     is_ai_crawler: bool = False
-    # "search" bots decide citation; "training" bots do not. Only the former
-    # can raise a discoverability finding.
     bot_class: BotClass = "browser"
     status_code: int = 0
     method: str = "HEAD"

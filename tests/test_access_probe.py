@@ -21,10 +21,7 @@ def _snapshot(probes: list[AccessProbeResult], *, robots_raw: str | None = None)
     )
     snapshot.access_probes = probes
     snapshot.access_probe_status = "complete"
-    # Default to a readable robots.txt: the robots-vs-server table only means
-    # anything when the declared policy was actually retrievable. Tests that
-    # exercise the unreadable case set this back to False explicitly.
-    snapshot.robots.available = True
+    snapshot.robots.available = True  # unread-robots cases set this False
     return snapshot
 
 

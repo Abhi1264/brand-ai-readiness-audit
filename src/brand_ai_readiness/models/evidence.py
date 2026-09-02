@@ -23,7 +23,6 @@ class EvidencePayload(BaseModel):
                         shown += f" (+{len(value) - 8} more)"
                     metric_bits.append(f"{key}={shown}")
                 elif isinstance(value, dict):
-                    # Render shallow maps readably rather than as a Python repr.
                     inner = ", ".join(f"{k}: {v}" for k, v in list(value.items())[:8])
                     metric_bits.append(f"{key}=({inner})")
                 else:

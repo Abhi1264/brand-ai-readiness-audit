@@ -26,8 +26,7 @@ _MAX_SNIPPET = re.compile(r"max-snippet\s*:\s*(-?\d+)", re.I)
 
 # Below this many characters a snippet cannot carry a useful fact.
 LOW_MAX_SNIPPET_CHARS = 50
-# data-nosnippet covering more than this share of the page's text stops being a
-# targeted exclusion and becomes a page-level opt-out.
+# data-nosnippet covering more than this share of the page is a page-level opt-out.
 DATA_NOSNIPPET_DOMINANT = 0.30
 
 
@@ -46,10 +45,6 @@ class SnippetPolicy:
 
     @property
     def header_only_noindex(self) -> bool:
-        """noindex present in the header but absent from the markup.
-
-        This is the case an HTML-only auditor cannot see at all.
-        """
         return self.noindex_in_header and not self.noindex_in_meta
 
     @property

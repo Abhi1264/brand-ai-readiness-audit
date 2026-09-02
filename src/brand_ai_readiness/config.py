@@ -8,24 +8,11 @@ DEFAULT_USER_AGENT = (
     "brand-ai-readiness-audit; recommend-only; read-only)"
 )
 
-# Diagnostic identities used only by the access probe (crawler/access_probe.py).
-# The probe measures who the origin lets in; it never uses these to retrieve
-# content that the honest audit user-agent was denied.
 BROWSER_PROBE_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
 )
 
-# Crawlers split into two classes, and conflating them produces a false
-# positive. Only SEARCH-class bots decide whether a brand can be cited:
-#   OpenAI  - "Sites that are opted out of OAI-SearchBot will not be shown in
-#             ChatGPT search answers." GPTBot is training only.
-#   Anthropic - Claude-SearchBot serves search quality; ClaudeBot is training.
-#   Perplexity - PerplexityBot surfaces search; "not used to crawl content for
-#             AI foundation models".
-# Blocking training-class bots while allowing search-class ones is a deliberate,
-# vendor-supported configuration -- opt out of training, stay citable. It must
-# never be reported as a discoverability defect.
 AI_SEARCH_PROBE_AGENTS: dict[str, str] = {
     "OAI-SearchBot": (
         "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; "
@@ -41,8 +28,6 @@ AI_SEARCH_PROBE_AGENTS: dict[str, str] = {
     ),
 }
 
-# Probed for context only. A block here is a licensing/policy choice, not a
-# citation problem, and never raises a finding on its own.
 AI_TRAINING_PROBE_AGENTS: dict[str, str] = {
     "GPTBot": (
         "Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; "
@@ -90,8 +75,6 @@ class AuditBudget:
     enable_render: bool = True
     enable_llm_polish: bool = False
     enable_access_probe: bool = True
-    # Max pages crawled from one deep URL family (e.g. /jobs/location/*), so a
-    # single facet family cannot consume the whole page budget.
     max_pages_per_url_family: int = 8
     user_agent: str = DEFAULT_USER_AGENT
     extra_allowed_hosts: tuple[str, ...] = field(default_factory=tuple)

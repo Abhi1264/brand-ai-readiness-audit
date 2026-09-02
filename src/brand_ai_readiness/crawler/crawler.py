@@ -249,7 +249,7 @@ class BoundedCrawler:
             self.access_probes = await probe_access(
                 client, self.start_url, self.budget, self.robots_policy
             )
-        except Exception as exc:  # noqa: BLE001 — a probe failure must not abort the crawl
+        except Exception as exc:
             logger.info("access probe unavailable: %s", exc)
             self.access_probes = []
         if not self.access_probes:
@@ -257,7 +257,6 @@ class BoundedCrawler:
             return
         browser = next((p for p in self.access_probes if not p.is_ai_crawler), None)
         ai = [p for p in self.access_probes if p.is_ai_crawler]
-        # Without a usable browser baseline there is nothing to compare against.
         if browser is None or browser.status_code == 0 or not ai:
             self.access_probe_status = "partial"
         else:

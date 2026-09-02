@@ -23,15 +23,9 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     if snapshot.access_probe_status != "complete":
         return []
     browser = snapshot.browser_probe()
-    # Only search-class crawlers decide whether a brand can be cited. Blocking
-    # training-class bots (GPTBot, ClaudeBot, CCBot) while allowing the search
-    # ones is a supported configuration, so it is recorded as context and never
-    # raises a finding on its own.
     search_probes = snapshot.search_probes()
     training_probes = snapshot.training_probes()
-    # Without a browser baseline that succeeded there is nothing to compare
-    # against: an origin that refuses everyone (paywall, geo-block, auth wall)
-    # is not an AI-crawler policy problem.
+    # Paywall/geo/auth that refuses the browser too is not an AI-crawler policy.
     if browser is None or not browser.reachable() or not search_probes:
         return []
 
@@ -39,17 +33,12 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     if not blocked:
         return []
 
-    # A permissive robots verdict only means something when robots.txt was
-    # actually readable. When it was not, allows_for() defaults to True for
-    # crawling purposes -- but "we could not read robots.txt" is not the same
-    # claim as "robots.txt permits this agent", and reporting it as the latter
-    # invents a contradiction that was never observed.
+    # allows_for() is True when robots.txt was unread; that is not a permit.
     robots_known = snapshot.robots.available
     contradicted = [probe for probe in blocked if robots_known and probe.robots_allows]
     consistent = [probe for probe in blocked if robots_known and not probe.robots_allows]
     undetermined = [] if robots_known else list(blocked)
-    # Flat scalars only: metrics are rendered into a prose evidence string, so a
-    # nested dict would surface to the reader as a Python repr.
+    # Flat scalars — nested dicts render as a Python repr in evidence.
     metrics: dict[str, object] = {
         "probe_url": snapshot.start_url,
         "probe_method": browser.method,
@@ -58,7 +47,6 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     for probe in search_probes:
         metrics[f"search_{probe.agent}_status"] = probe.status_code
         metrics[f"search_{probe.agent}_robots_allows"] = "yes" if probe.robots_allows else "no"
-    # Training-class results are context for the reader, not part of the verdict.
     for probe in training_probes:
         metrics[f"training_{probe.agent}_status"] = probe.status_code
 
@@ -109,15 +97,12 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
                 ),
                 confidence=0.9,
                 scope_pages=1,
-                # Edge policy is origin-wide, not a property of the probed page.
-                scope_fraction=1.0,
+                scope_fraction=1.0,  # origin-wide edge policy
                 impact_weight=4,
             )
         )
 
-    # Consistent exclusion (robots says no and the server enforces it) is a
-    # deliberate policy, not a defect. Report it once, and only when the robots
-    # finding has not already covered the same ground.
+    # Skip when CR-001 already reported the same robots exclusion.
     if consistent and not contradicted and not robots_already_flagged:
         names = ", ".join(probe.agent for probe in consistent)
         findings.append(
@@ -160,8 +145,6 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
             )
         )
 
-    # Blocked, but robots.txt could not be read: report the observation without
-    # asserting whether the exclusion was intended.
     if undetermined:
         names = ", ".join(probe.agent for probe in undetermined)
         findings.append(

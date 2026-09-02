@@ -18,6 +18,40 @@ from brand_ai_readiness.orchestration.compose import run_audit
 HOSTED_MAX_PAGES = 20
 PACKAGE_DIR = Path(__file__).resolve().parent
 
+LABELS = {
+    "crawlability": "Reach",
+    "rendering": "HTML vs render",
+    "machine_readability": "Readable HTML",
+    "structured_data": "Structured data",
+    "entity": "Identity",
+    "entity_clarity": "Identity",
+    "freshness": "Freshness",
+    "freshness_transparency": "Freshness",
+    "corroboration": "Corroboration",
+    "engagement": "First visit",
+    "mobile": "Mobile",
+    "coverage": "Coverage",
+    "homepage_orientation": "Homepage orientation",
+    "navigation": "Navigation",
+    "cta_clarity": "Calls to action",
+    "internal_linking": "Internal links",
+}
+
+ASSISTANT_KEYS = (
+    "crawlability",
+    "machine_readability",
+    "structured_data",
+    "entity_clarity",
+    "freshness_transparency",
+)
+VISITOR_KEYS = (
+    "homepage_orientation",
+    "navigation",
+    "cta_clarity",
+    "internal_linking",
+    "mobile",
+)
+
 app = FastAPI(title="AI Readiness Auditor", version=__version__)
 app.mount("/static", StaticFiles(directory=PACKAGE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=str(PACKAGE_DIR / "templates"))
@@ -73,6 +107,140 @@ def checked_label(iso: str | None) -> str:
     return f"{stamp:%b} {stamp.day}, {stamp.year}"
 
 
+def category_label(slug: str | None) -> str:
+    if not slug:
+        return ""
+    return LABELS.get(slug, slug.replace("_", " "))
+
+
+def _count(data: dict[str, Any], key: str) -> int:
+    return int(data.get(key) or 0)
+
+
+def verdict_copy(report: dict[str, Any] | None) -> dict[str, str] | None:
+    if not report:
+        return None
+    scores = report.get("scores") or {}
+    disco = scores.get("ai_discoverability_score")
+    eng = scores.get("engagement_score")
+    overall = scores.get("overall_score")
+    summary = report.get("summary") or {}
+    critical = _count(summary, "critical")
+    high = _count(summary, "high")
+    total = _count(summary, "total_findings")
+    site = report.get("site") or "This site"
+
+    if disco is None or eng is None:
+        return {
+            "headline": f"{site} was checked.",
+            "detail": "Scores were not produced for this scan.",
+            "tone": "mixed",
+        }
+    if critical:
+        noun = "issue" if critical == 1 else "issues"
+        return {
+            "headline": "Assistants hit a hard stop on this site.",
+            "detail": (
+                f"{critical} critical {noun} would block crawling or citation "
+                "before anything else is worth fixing."
+            ),
+            "tone": "block",
+        }
+    if disco >= 75 and eng >= 75:
+        return {
+            "headline": "Assistants and visitors can both make sense of this site.",
+            "detail": "The mechanical basics are healthy. Remaining items are polish on the pages we crawled.",
+            "tone": "ok",
+        }
+    if disco >= 70 and eng < 55:
+        return {
+            "headline": "Assistants can find this site; visitors may stall.",
+            "detail": "The pages are reachable, but the first visit does not explain who it is for or what to do next.",
+            "tone": "split",
+        }
+    if eng >= 70 and disco < 55:
+        return {
+            "headline": "Visitors can find their way; assistants may not.",
+            "detail": "Humans can orient, but machines lack the structure or access they need to cite this brand.",
+            "tone": "split",
+        }
+    if total == 0:
+        return {
+            "headline": "No issues on the pages we scanned.",
+            "detail": "A strong starting point for the crawled set — not a claim about the rest of the site.",
+            "tone": "ok",
+        }
+    if high and (overall is None or overall < 70):
+        noun = "issue" if high == 1 else "issues"
+        return {
+            "headline": "This site is only partly usable as a source.",
+            "detail": f"{high} high-severity {noun} on the crawled pages are the fastest way to raise the score.",
+            "tone": "mixed",
+        }
+    return {
+        "headline": "Readable in places, unclear in others.",
+        "detail": "Fix the items below in severity order. Each one is tied to pages we actually fetched.",
+        "tone": "mixed",
+    }
+
+
+def coverage_view(coverage: dict[str, Any] | None) -> dict[str, Any] | None:
+    if not coverage:
+        return None
+    crawled = _count(coverage, "pages_crawled")
+    failed = _count(coverage, "pages_failed")
+    blocked = _count(coverage, "pages_blocked")
+    discovered = _count(coverage, "pages_discovered")
+    total = max(discovered, crawled + failed + blocked, 1)
+
+    def pct(count: int) -> float:
+        return round(100 * count / total, 2)
+
+    leftover = max(0, total - crawled - blocked - failed)
+    return {
+        "crawled": crawled,
+        "failed": failed,
+        "blocked": blocked,
+        "discovered": discovered,
+        "rendering_status": coverage.get("rendering_status") or "skipped",
+        "access_probe_status": coverage.get("access_probe_status") or "",
+        "limitations": coverage.get("limitations") or [],
+        "pct_crawled": pct(crawled),
+        "pct_blocked": pct(blocked),
+        "pct_failed": pct(failed),
+        "pct_rest": pct(leftover),
+    }
+
+
+def component_groups(scores: dict[str, Any] | None) -> list[dict[str, Any]]:
+    components = (scores or {}).get("components") or {}
+    if not components:
+        return []
+    groups: list[dict[str, Any]] = []
+    for title, keys in (("For assistants", ASSISTANT_KEYS), ("For visitors", VISITOR_KEYS)):
+        items = [
+            {"key": key, "label": category_label(key), "value": int(components[key])}
+            for key in keys
+            if key in components
+        ]
+        if items:
+            groups.append({"title": title, "items": items})
+    return groups
+
+
+def finding_categories(findings: list[Any] | None) -> list[str]:
+    seen: list[str] = []
+    for item in findings or []:
+        category = item.get("category")
+        if category and category not in seen:
+            seen.append(category)
+    return seen
+
+
+templates.env.filters["category_label"] = category_label
+templates.env.filters["site_type_label"] = category_label
+
+
 def render_page(
     request: Request,
     *,
@@ -82,6 +250,7 @@ def render_page(
     max_pages: int = 12,
     status_code: int = 200,
 ) -> HTMLResponse:
+    scores = (report or {}).get("scores")
     return templates.TemplateResponse(
         request,
         "index.html",
@@ -92,6 +261,10 @@ def render_page(
             "max_pages": max_pages,
             "max_pages_cap": HOSTED_MAX_PAGES,
             "checked_label": checked_label((report or {}).get("audited_at")),
+            "verdict": verdict_copy(report),
+            "coverage": coverage_view((report or {}).get("coverage")),
+            "component_groups": component_groups(scores),
+            "finding_categories": finding_categories((report or {}).get("findings")),
         },
         status_code=status_code,
     )

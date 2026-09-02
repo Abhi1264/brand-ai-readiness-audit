@@ -100,5 +100,4 @@ def proactive_recommendations(snapshot: CrawlSnapshot, findings: list[Finding]) 
             )
         )
 
-    # Cap so the report stays prioritized, not a dump.
     return recs[:6]

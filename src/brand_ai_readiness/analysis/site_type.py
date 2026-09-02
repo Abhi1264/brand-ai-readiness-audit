@@ -6,10 +6,7 @@ from collections import Counter
 from brand_ai_readiness.analysis.pageview import effective_page
 from brand_ai_readiness.models.snapshot import CrawlSnapshot, SiteType
 
-# A winner must beat the runner-up by at least this much, otherwise the site is
-# genuinely "mixed". Committing to a narrow winner picks the expected schema
-# types for the wrong kind of site and turns one weak signal into a confident,
-# wrong recommendation.
+# Commit only when a type wins by this margin; otherwise the site is mixed.
 _SITE_TYPE_MARGIN = 2
 
 _SIGNAL_RULES: list[tuple[SiteType, str, re.Pattern[str]]] = [
@@ -46,9 +43,7 @@ def infer_site_type(snapshot: CrawlSnapshot) -> CrawlSnapshot:
         "docs": ("docs", 2, "docs pages present"),
         "contact": ("local_business", 1, "contact/location pages present"),
     }
-    # Award each role its weight ONCE, scaled by how much of the crawl it covers.
-    # Adding a point per page lets one large URL family (a job board's location
-    # filters, a store locator) outvote every other signal on the site.
+    # Score each role once, scaled by crawl share, so one URL family cannot dominate.
     role_counts = Counter(page.role for page in snapshot.pages)
     total_pages = max(len(snapshot.pages), 1)
     for role, (kind, weight, label) in role_bonus.items():

@@ -1,42 +1,229 @@
-<section class="results" aria-labelledby="results-title">
-  <div class="results-head">
-    <div>
-      <h2 id="results-title">{{ report.site }}</h2>
-      <p class="when">Checked {{ checked_label }}</p>
-    </div>
-    <a class="btn btn-secondary" href="#results-title" data-download data-site="{{ report.site }}">Download report</a>
-  </div>
+<section class="report" aria-labelledby="verdict-title" data-results>
+  <div class="report-spine" aria-hidden="true"></div>
 
-  <div class="scores">
-    <div class="score">
-      <span>Visibility</span>
-      <b>{{ report.scores.ai_discoverability_score if report.scores else "—" }}</b>
+  <header class="report-mast">
+    <p class="report-kicker">
+      <span class="report-host">{{ report.site }}</span>
+      {% if report.site_type %}
+      <span class="sep" aria-hidden="true">·</span>
+      <span>{{ report.site_type|site_type_label }}</span>
+      {% endif %}
+      <span class="sep" aria-hidden="true">·</span>
+      <span>Checked {{ checked_label }}</span>
+    </p>
+    <div class="report-actions">
+      <a class="btn btn-secondary" href="#check-another">New check</a>
+      <button class="btn btn-secondary" type="button" data-copy-link>Copy check link</button>
+      <a class="btn btn-secondary" href="#verdict-title" data-download data-site="{{ report.site }}">Download report</a>
     </div>
-    <div class="score">
-      <span>Experience</span>
-      <b>{{ report.scores.engagement_score if report.scores else "—" }}</b>
+    <div class="report-ident">
+      {% if verdict %}
+      <h2 id="verdict-title" class="verdict verdict-{{ verdict.tone }}" tabindex="-1">{{ verdict.headline }}</h2>
+      <p class="verdict-detail">{{ verdict.detail }}</p>
+      {% else %}
+      <h2 id="verdict-title" class="verdict" tabindex="-1">{{ report.site }}</h2>
+      {% endif %}
     </div>
-    <div class="score">
+  </header>
+
+  {% if report.scores %}
+  <div class="meters" role="group" aria-label="Scores">
+    <div class="meter">
+      <div class="meter-head">
+        <span>Visibility to assistants</span>
+        <b>{{ report.scores.ai_discoverability_score }}</b>
+      </div>
+      <div
+        class="meter-track"
+        role="meter"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="{{ report.scores.ai_discoverability_score }}"
+        aria-label="Visibility to assistants"
+      >
+        <span class="meter-fill tone-{{ 'high' if report.scores.ai_discoverability_score >= 75 else 'mid' if report.scores.ai_discoverability_score >= 50 else 'low' }}" data-pct="{{ report.scores.ai_discoverability_score }}"></span>
+      </div>
+    </div>
+    <div class="meter">
+      <div class="meter-head">
+        <span>First-visit experience</span>
+        <b>{{ report.scores.engagement_score }}</b>
+      </div>
+      <div
+        class="meter-track"
+        role="meter"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        aria-valuenow="{{ report.scores.engagement_score }}"
+        aria-label="First-visit experience"
+      >
+        <span class="meter-fill tone-{{ 'high' if report.scores.engagement_score >= 75 else 'mid' if report.scores.engagement_score >= 50 else 'low' }}" data-pct="{{ report.scores.engagement_score }}"></span>
+      </div>
+    </div>
+    <p class="overall">
       <span>Overall</span>
-      <b>{{ report.scores.overall_score if report.scores else "—" }}</b>
-    </div>
+      <b>{{ report.scores.overall_score }}</b>
+      <span class="overall-hint">55% visibility, 45% experience</span>
+    </p>
   </div>
+  {% endif %}
+
+  {% if coverage %}
+  <div class="coverage">
+    <div class="coverage-head">
+      <h3>What we fetched</h3>
+      <p>
+        {{ coverage.crawled }} crawled
+        {% if coverage.blocked %} · {{ coverage.blocked }} blocked{% endif %}
+        {% if coverage.failed %} · {{ coverage.failed }} failed{% endif %}
+        {% if coverage.discovered %} · {{ coverage.discovered }} discovered{% endif %}
+        · render {{ coverage.rendering_status }}
+        {% if coverage.access_probe_status and coverage.access_probe_status != "skipped" %}
+        · crawler probe {{ coverage.access_probe_status }}
+        {% endif %}
+      </p>
+    </div>
+    <div class="coverage-bar" aria-hidden="true">
+      <span class="seg-crawled" data-pct="{{ coverage.pct_crawled }}"></span>
+      <span class="seg-blocked" data-pct="{{ coverage.pct_blocked }}"></span>
+      <span class="seg-failed" data-pct="{{ coverage.pct_failed }}"></span>
+      <span class="seg-rest" data-pct="{{ coverage.pct_rest }}"></span>
+    </div>
+    {% if coverage.limitations %}
+    <ul class="limitations">
+      {% for note in coverage.limitations %}
+      <li>{{ note }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if component_groups %}
+  <details class="breakdown">
+    <summary>How this was scored</summary>
+    <div class="breakdown-grid">
+          {% for group in component_groups %}
+          <div>
+            <h3>{{ group.title }}</h3>
+            {% for item in group["items"] %}
+            <div class="comp">
+              <span>{{ item.label }}</span>
+              <b>{{ item.value }}</b>
+              <div class="comp-track" aria-hidden="true"><i data-pct="{{ item.value }}"></i></div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+    </div>
+  </details>
+  {% endif %}
 
   {% if report.findings %}
-  <h2 id="findings">What to fix · {{ report.findings|length }}</h2>
-  <div class="findings">
-    {% for item in report.findings %}
-    <article class="finding finding-{{ item.severity }}">
-      <p class="sev">{{ item.severity|capitalize }}</p>
-      <h3>{{ item.title }}</h3>
-      <p>{{ item.suggested_action.summary }}</p>
-    </article>
-    {% endfor %}
+  <div class="findings-wrap">
+    <div class="findings-head">
+      <h3 id="findings">What to fix · {{ report.findings|length }}</h3>
+      <div class="findings-tools">
+        <button class="text-btn" type="button" data-expand-all>Open all evidence</button>
+        <button class="text-btn" type="button" data-collapse-all>Close all</button>
+      </div>
+    </div>
+
+    <div class="filters" data-filters>
+      <div class="filter-row" role="group" aria-label="Filter by severity">
+        <button class="chip is-on" type="button" data-filter-severity="all" aria-pressed="true">All</button>
+        {% if report.summary and report.summary.critical %}
+        <button class="chip chip-critical" type="button" data-filter-severity="critical" aria-pressed="false">Critical {{ report.summary.critical }}</button>
+        {% endif %}
+        {% if report.summary and report.summary.high %}
+        <button class="chip chip-high" type="button" data-filter-severity="high" aria-pressed="false">High {{ report.summary.high }}</button>
+        {% endif %}
+        {% if report.summary and report.summary.medium %}
+        <button class="chip chip-medium" type="button" data-filter-severity="medium" aria-pressed="false">Medium {{ report.summary.medium }}</button>
+        {% endif %}
+        {% if report.summary and report.summary.low %}
+        <button class="chip chip-low" type="button" data-filter-severity="low" aria-pressed="false">Low {{ report.summary.low }}</button>
+        {% endif %}
+      </div>
+      {% if finding_categories %}
+      <div class="filter-row" role="group" aria-label="Filter by topic">
+        <button class="chip is-on" type="button" data-filter-category="all" aria-pressed="true">Every topic</button>
+        {% for cat in finding_categories %}
+        <button class="chip" type="button" data-filter-category="{{ cat }}" aria-pressed="false">{{ cat|category_label }}</button>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <p class="filter-status" data-filter-status aria-live="polite"></p>
+    </div>
+
+    <div class="findings">
+      {% for item in report.findings %}
+      <article
+        class="finding finding-{{ item.severity }}"
+        id="{{ item.id }}"
+        data-finding
+        data-severity="{{ item.severity }}"
+        data-category="{{ item.category or '' }}"
+      >
+        <div class="finding-top">
+          <p class="sev">{{ item.severity }}</p>
+          {% if item.category %}
+          <p class="finding-cat">{{ item.category|category_label }}</p>
+          {% endif %}
+          {% if item.confidence is number %}
+          <p class="finding-conf">{{ (item.confidence * 100)|int }}% confidence</p>
+          {% endif %}
+        </div>
+        <h3>{{ item.title }}</h3>
+        <p class="finding-fix">{{ item.suggested_action.summary }}</p>
+        <details class="finding-proof"{% if loop.index <= 2 %} open{% endif %}>
+          <summary>Evidence</summary>
+          <blockquote class="evidence">{{ item.evidence }}</blockquote>
+          {% if item.impact %}
+          <p><span class="proof-label">Why it matters</span> {{ item.impact }}</p>
+          {% endif %}
+          {% if item.mechanism %}
+          <p><span class="proof-label">How we know</span> {{ item.mechanism }}</p>
+          {% endif %}
+          {% if item.suggested_action.details %}
+          <p><span class="proof-label">How to fix</span> {{ item.suggested_action.details }}</p>
+          {% endif %}
+          {% if item.source_urls %}
+          <p class="proof-label">Pages</p>
+          <ul class="source-urls">
+            {% for href in item.source_urls[:8] %}
+            <li><a href="{{ href }}" rel="noopener noreferrer" target="_blank">{{ href }}</a></li>
+            {% endfor %}
+          </ul>
+          {% endif %}
+        </details>
+        <button class="text-btn copy-finding" type="button" data-copy-finding>Copy this issue</button>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="empty" data-filter-empty hidden>No issues in this view. Choose All to see the full list.</p>
   </div>
   {% else %}
   <div class="empty">
-    <p>No issues found on the pages we scanned. That’s a strong starting point.</p>
+    <p>No issues found on the pages we scanned. That’s a strong starting point for this crawl, not a claim about pages we did not fetch.</p>
   </div>
   {% endif %}
+
+  {% if report.proactive_recommendations %}
+  <section class="ceiling" aria-labelledby="ceiling-title">
+    <h3 id="ceiling-title">Where on-page work stops helping</h3>
+    <p class="ceiling-lede">Citation also depends on mentions and coverage elsewhere on the web. These are the useful on-page moves after the issues above.</p>
+    <div class="recs">
+      {% for rec in report.proactive_recommendations %}
+      <article class="rec">
+        <h4>{{ rec.summary }}</h4>
+        <p>{{ rec.why_it_matters }}</p>
+        <p class="rec-change">{{ rec.what_to_change }}</p>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <script type="application/json" id="report-json">{{ report | tojson }}</script>
 </section>

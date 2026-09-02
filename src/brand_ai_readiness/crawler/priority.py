@@ -5,9 +5,6 @@ from urllib.parse import urlparse
 
 from brand_ai_readiness.models.snapshot import PageRole
 
-# Matched against a single path segment, not the whole path, so that a role word
-# appearing mid-path as a facet ("/jobs/location/warsaw-poland") does not claim
-# the page. See classify_role for the positional rule that enforces this.
 _ROLE_RULES: list[tuple[PageRole, re.Pattern[str]]] = [
     ("about", re.compile(r"^(about|about-us|company|who-we-are|our-story|team)$", re.I)),
     ("product", re.compile(r"^(product|products|shop|store|catalog|item|items)$", re.I)),
@@ -19,24 +16,12 @@ _ROLE_RULES: list[tuple[PageRole, re.Pattern[str]]] = [
     ("legal", re.compile(r"^(privacy|terms|legal|cookies|gdpr)$", re.I)),
 ]
 
-# Roles whose word only counts as the site's own top-level section. A genuine
-# "locations" section sits at the root; nested under something else it is that
-# thing's facet index ("/jobs/locations"), not a place the business operates.
 _FIRST_SEGMENT_ONLY: list[tuple[PageRole, re.Pattern[str]]] = [
     ("contact", re.compile(r"^(locations?)$", re.I)),
 ]
 
 
 def classify_role(url: str) -> PageRole:
-    """Assign a page role from its URL path.
-
-    A role word only claims the page when it is the *first* segment (the site
-    section, e.g. "/products/widget") or the *last* one (the page itself, e.g.
-    "/en/contact"). A role word sitting mid-path with further segments after it
-    is a facet or filter, not a page of that kind — "/jobs/location/warsaw" is a
-    job-board filter, not a contact page. Without this rule a single large facet
-    family can mislabel most of a crawl and skew site-type inference.
-    """
     path = urlparse(url).path or "/"
     if path in {"", "/"}:
         return "homepage"
