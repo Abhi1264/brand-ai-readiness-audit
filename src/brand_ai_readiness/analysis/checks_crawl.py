@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from brand_ai_readiness.analysis.finding_factory import make_finding
+from brand_ai_readiness.analysis.blocked_page import blocked_pages
 from brand_ai_readiness.analysis.machine_readability import image_only_fact_pages
 from brand_ai_readiness.analysis.snippet_policy import (
     DATA_NOSNIPPET_DOMINANT,
@@ -376,6 +377,65 @@ def _snippet_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     return findings
 
 
+def _challenge_findings(snapshot: CrawlSnapshot) -> list[Finding]:
+    """The origin served a bot challenge instead of content."""
+    blocked = blocked_pages(snapshot)
+    if not blocked:
+        return []
+    home = snapshot.homepage()
+    home_blocked = any(page.url == (home.url if home else None) for page, _ in blocked)
+    examples = [
+        {"url": page.url, "status": page.status_code, "signals": assessment.summary}
+        for page, assessment in blocked[:5]
+    ]
+    return [
+        make_finding(
+            id="CR-030",
+            category="crawlability",
+            title=(
+                "The origin serves a bot-challenge page instead of content"
+                if home_blocked
+                else "Some pages return a bot-challenge page instead of content"
+            ),
+            mechanism_code="crawler_challenge_page",
+            mechanism=(
+                "A CDN or WAF answered with an interstitial -- an access-denied notice, a "
+                "CAPTCHA, or a JavaScript challenge -- rather than the page. The response is "
+                "valid HTML, so it is easy to mistake for the real page."
+            ),
+            impact=(
+                "Assistants that cannot solve the challenge receive the interstitial and never "
+                "see the content, so nothing on these pages can be read or cited."
+            ),
+            observation=(
+                f"{len(blocked)} crawled URL(s) returned a challenge or access-denied page"
+                + (", including the homepage" if home_blocked else "")
+                + ". Content checks were not run against them, because the content was never served."
+            ),
+            source_urls=[page.url for page, _ in blocked[:8]],
+            metrics={"blocked_pages": len(blocked), "examples": examples},
+            action_summary=(
+                "Allow the audited crawler and the AI search crawlers through the CDN/WAF bot "
+                "rules so they receive the page instead of a challenge."
+            ),
+            action_details=(
+                "Bot-management rules usually match on user-agent or on the absence of a "
+                "JavaScript-solved token. Verify by requesting the page with a crawler "
+                "user-agent and confirming a 200 with the real body."
+            ),
+            rationale=(
+                "Flagged from vendor challenge markers or challenge wording corroborated by a "
+                "blocking status or an empty body -- not from a short page alone."
+            ),
+            implementation_direction="CDN/WAF bot-management rules and any user-agent deny list.",
+            confidence=0.9,
+            scope_pages=len(blocked),
+            scope_fraction=len(blocked) / max(len(snapshot.pages), 1),
+            impact_weight=4 if home_blocked else 3,
+        )
+    ]
+
+
 def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     findings: list[Finding] = []
     pages = snapshot.pages
@@ -421,6 +481,7 @@ def crawl_findings(snapshot: CrawlSnapshot) -> list[Finding]:
 
     findings.extend(_access_probe_findings(snapshot, robots_flagged))
     findings.extend(_snippet_findings(snapshot))
+    findings.extend(_challenge_findings(snapshot))
 
     failed_http = [
         page
