@@ -14,13 +14,6 @@ from tests.helpers import snapshot_from_site_dir
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def test_sample_report_validates():
-    payload = json.loads((ROOT / "examples" / "sample-report.json").read_text(encoding="utf-8"))
-    report = validate_report_payload(payload)
-    assert report.site == "example.com"
-    assert report.summary.total_findings == 6
-
-
 def test_required_fields_and_counts():
     snapshot = snapshot_from_site_dir("04_missing_structured")
     report = report_from_snapshot(snapshot)
@@ -85,9 +78,15 @@ def _sample_report():
 
 
 def test_sample_report_validates():
-    from brand_ai_readiness.orchestration.validate import validate_report_payload
+    """The example must satisfy the same contract as live output.
 
-    validate_report_payload(_sample_report())
+    Deliberately asserts no fixed site name or finding count: pinning those is
+    what made the previous version of this test obsolete the moment the example
+    was regenerated.
+    """
+    report = validate_report_payload(_sample_report())
+    assert report.site
+    assert report.summary.total_findings == len(report.findings)
 
 
 def test_sample_report_is_not_stale():
