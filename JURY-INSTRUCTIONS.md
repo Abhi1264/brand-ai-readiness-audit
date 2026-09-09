@@ -8,6 +8,8 @@ Everything needed to run and check this submission, on a clean machine, in one c
 ./run-jury.sh https://example.com
 ```
 
+stdout carries only the report, so `python -m brand_ai_readiness <url> | jq` works. Progress and diagnostics go to stderr. Logging is quiet by default; `--verbose` restores it and turns the live display off, since log lines and an in-place redraw fight each other.
+
 That creates a virtualenv, installs dependencies, runs the full test suite, and audits the URL,
 writing `audit-report.json` and printing a summary. No API key, no account, no external service.
 
@@ -34,6 +36,7 @@ Browser rendering is optional. Without Playwright installed the audit still comp
 | Network | GET and HEAD only, enforced in code (`SAFE_METHODS`); non-read methods raise |
 | Output | One JSON object: `site`, `audited_at`, `summary`, `findings[]`, plus `coverage`, `scores`, `proactive_recommendations` |
 | Human-readable | Add `--format markdown` for the same data as a readable report |
+| While it runs | A live phase display on **stderr** — robots, AI-crawler probe, crawl, render, analyse — then a summary panel. `--no-progress` turns it off; it disables itself automatically when stderr is not a terminal, so piped and CI output stays plain |
 | Tests | `./.venv/bin/python -m pytest -q` — 133 passing, 1 skipped (a live-network test, opt-in) |
 
 ## Read the output without running anything

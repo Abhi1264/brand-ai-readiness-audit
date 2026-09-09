@@ -57,6 +57,11 @@ flowchart TD
 `./run-jury.sh https://example.com` sets up, tests, audits, and validates in one command. See
 [JURY-INSTRUCTIONS.md](JURY-INSTRUCTIONS.md) for expected output, runtime, and known limitations.
 
+While the audit runs, a live phase display on stderr shows robots, the AI-crawler probe, the
+crawl page count, rendering and analysis, then prints a summary panel with the severity mix, the
+scores and the first fix. It is plain ANSI with no dependency, writes only to stderr so stdout
+stays pipeable, and disables itself when stderr is not a terminal or `NO_COLOR` is set.
+
 The report is JSON by design -- it is a contract another tool can consume. `--format markdown`
 renders the same data for a person: severity-ordered, with a "start here" list, the mechanism and
 cost of each finding, where to change it, and an explicit note on what the audit could not check.

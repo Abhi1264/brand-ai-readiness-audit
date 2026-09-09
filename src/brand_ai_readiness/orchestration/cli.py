@@ -8,7 +8,9 @@ import sys
 from pathlib import Path
 
 from brand_ai_readiness.config import AuditBudget
+from brand_ai_readiness.crawler.urls import site_label
 from brand_ai_readiness.orchestration.compose import run_audit
+from brand_ai_readiness.orchestration.progress import make_progress
 from brand_ai_readiness.orchestration.render_markdown import render_markdown
 
 
@@ -30,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=15.0)
     parser.add_argument("--concurrency", type=int, default=4)
     parser.add_argument("--llm-polish", action="store_true", help="Optional wording polish if OPENAI_API_KEY is set")
+    parser.add_argument(
+        "--no-progress",
+        action="store_true",
+        help="Suppress the live progress display (stderr-only; auto-disables when piped)",
+    )
     parser.add_argument("--verbose", action="store_true")
     return parser
 
@@ -48,18 +55,31 @@ def budget_from_args(args: argparse.Namespace) -> AuditBudget:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    # Default to warnings only. At INFO, httpx logs a line per request, which
+    # buries anything the audit itself has to say. --verbose brings it all back.
     logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
+        level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s %(name)s: %(message)s",
     )
+    if not args.verbose:
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+        logging.getLogger("httpcore").setLevel(logging.WARNING)
     url = args.url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    # Progress is stderr-only so stdout stays a clean report for piping, and is
+    # off under --verbose, where log lines would fight the redraw.
+    reporter = make_progress(not args.no_progress and not args.verbose, site_label(url))
     try:
-        report = asyncio.run(run_audit(url, budget_from_args(args)))
+        report = asyncio.run(run_audit(url, budget_from_args(args), reporter))
     except KeyboardInterrupt:
+        reporter.failed("interrupted")
         return 130
+    except Exception as exc:  # noqa: BLE001
+        reporter.failed(str(exc))
+        raise
     payload = report.model_dump_public()
+    reporter.done(payload)
     if args.format == "markdown":
         text = render_markdown(payload)
     else:

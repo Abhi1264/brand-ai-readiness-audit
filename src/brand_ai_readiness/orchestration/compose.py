@@ -22,6 +22,7 @@ from brand_ai_readiness.models.snapshot import CrawlSnapshot
 from brand_ai_readiness.orchestration.dedupe import dedupe_findings
 from brand_ai_readiness.orchestration.llm import polish_actions
 from brand_ai_readiness.orchestration.proactive import proactive_recommendations
+from brand_ai_readiness.orchestration.progress import Progress
 from brand_ai_readiness.rendering.renderer import render_snapshot_pages_async
 from brand_ai_readiness.scoring.prioritize import sort_findings
 from brand_ai_readiness.scoring.scorecard import compute_scorecard
@@ -165,21 +166,33 @@ async def _expand_from_rendered(snapshot: CrawlSnapshot, budget: AuditBudget) ->
     return snapshot
 
 
-async def run_audit(url: str, budget: AuditBudget | None = None) -> AuditReport:
+async def run_audit(
+    url: str, budget: AuditBudget | None = None, progress: Progress | None = None
+) -> AuditReport:
     budget = budget or AuditBudget()
-    snapshot = await crawl_site(url, budget)
+    reporter = progress or Progress()
+    snapshot = await crawl_site(url, budget, reporter)
+    reporter.phase("render")
     try:
         await render_snapshot_pages_async(snapshot, budget)
         if snapshot.stats.rendering_status in {"complete", "partial"}:
             snapshot = await _expand_from_rendered(snapshot, budget)
+        if snapshot.stats.rendering_status in {"unavailable", "skipped"}:
+            reporter.skip("render", snapshot.stats.rendering_status)
+        else:
+            reporter.detail("render", f"{snapshot.stats.pages_rendered} page(s)")
     except Exception as exc:  # noqa: BLE001
         logger.info("rendering skipped: %s", exc)
         snapshot.stats.rendering_status = "unavailable"
+        reporter.skip("render", "unavailable")
+    reporter.phase("analyse")
     enrich_snapshot(snapshot)
     signals = analyze_engagement(snapshot)
     findings = collect_skill_findings(snapshot, signals)
     if budget.enable_llm_polish:
         findings = polish_actions(findings)
+    reporter.detail("analyse", f"{len(findings)} finding(s)")
+    reporter.phase("report")
     return build_report(snapshot, findings, signals)
 
 
