@@ -1,11 +1,49 @@
 # Brand AI-Readiness Audit
 
-A **single Agent Skill Marketplace** that takes `Audit https://example.com` and returns a validated, evidence-backed report of:
+**A brand can be absent from an AI assistant's answer while its website looks perfect to a person.**
 
-1. **AI discoverability** — why assistants may fail to reach, read, understand, trust, or cite the brand
-2. **On-site engagement** — why a visitor who arrives may fail to orient, continue, or act
+An assistant does not read a site the way a visitor does. It runs a chain of gates on the brand's
+behalf, and the brand drops out of the answer the moment any one gate fails — silently, with
+nothing visibly broken on screen.
 
-It is **recommend-only**. Nothing in this marketplace modifies a live website.
+```
+              OFF-SITE DISCOVERABILITY                 │      ON-SITE ENGAGEMENT
+                                                       │
+  reach  ──►  read  ──►  quote  ──►  trust  ──► resolve │  orient ──► continue ──► act
+    │          │          │           │           │     │     │           │         │
+ robots +   raw HTML   nosnippet    dates &    entity   │   H1 &      internal    clear
+ CDN/WAF    vs after   max-snippet  corrobo-   sameAs   │  identity     links      CTA
+  policy       JS      X-Robots-Tag  ration   ambiguity │
+```
+
+Each gate fails for a different reason, needs different evidence, and has a different fix. This
+marketplace runs one skill per concern and composes them into a single report: every finding names
+the gate that broke, quotes what was actually observed, and says what to change.
+
+**It is recommend-only.** Nothing here modifies a live website.
+
+## Three failures a checklist misses
+
+These are the ones that make the difference between a site that looks fine and a brand that is
+actually citable.
+
+**robots.txt states a policy; the CDN enforces one — and they disagree.** A site can publish a
+perfectly welcoming robots.txt and still return `403` to every AI crawler from a bot-management
+rule, with nothing in the robots file to hint at it. Only comparing the two reveals it. In testing,
+nytimes.com serves a browser `200` and AI crawlers `403`.
+
+**Only *search* crawlers decide citation.** `OAI-SearchBot`, `Claude-SearchBot` and `PerplexityBot`
+determine whether a brand can appear in an answer. `GPTBot`, `ClaudeBot` and `CCBot` are *training*
+crawlers. Blocking training while allowing search is a deliberate, vendor-supported configuration —
+reporting it as a defect would flag the most common intentional setup as broken, so this audit
+records it as context and never as a finding.
+
+**A page can be reachable, indexed, well marked up — and still withheld.** Google documents that
+`nosnippet` "will also prevent the content from being used as a direct input for AI Overviews and AI
+Mode". It arrives from the markup *or* the `X-Robots-Tag` response header, which is invisible to
+anything that only parses HTML and is usually set by a CDN rather than the page template.
+
+## How a run flows
 
 ```
 URL → crawl → robots/indexability → AI-crawler access probe → raw HTML → optional browser render
@@ -13,7 +51,10 @@ URL → crawl → robots/indexability → AI-crawler access probe → raw HTML �
     → deterministic evidence → severity/priority → validated JSON
 ```
 
-The LLM is optional and never invents evidence. The default path is fully deterministic.
+Severity is arithmetic, never a model's opinion. The optional LLM polish rewrites wording over
+evidence already collected, is off by default, and cannot touch severity or invent a fact.
+See [what on-page auditing can and cannot fix](#what-on-page-auditing-can-and-cannot-fix) for the
+honest ceiling on all of this.
 
 ## Why five skills (not one mega-skill)
 
@@ -34,7 +75,7 @@ marketplace.json          contest manifest (exactly one entrypoint)
 skills/*/SKILL.md         agentskills.io skills (lean instructions)
 skills/*/scripts          thin CLIs over the shared library
 src/brand_ai_readiness    deterministic implementation
-tests/fixtures/sites      11 synthetic websites for precision tests
+tests/fixtures/sites      16 synthetic websites: 12 defect fixtures + 4 healthy archetypes
 ```
 
 ```mermaid
@@ -160,7 +201,9 @@ pytest
 pytest -m live
 ```
 
-Synthetic sites live in `tests/fixtures/sites/` (excellent, robots-blocked, JS-only, missing/conflicting structured data, stale, ambiguous entity, image-only facts, broken nav, disco/engagement splits, UA-gated origin).
+Synthetic sites live in `tests/fixtures/sites/`. Twelve encode a specific defect (robots-blocked, JS-only, missing/conflicting structured data, stale, ambiguous entity, image-only facts, broken nav, disco/engagement splits, UA-gated origin). Four are *healthy* sites of a given archetype — ecommerce, publication, local business, documentation — used by `tests/generalization/` to check the opposite property: that a good site of any kind raises nothing severe, and that no archetype is told to add markup it does not need.
+
+CI runs the suite on Python 3.11-3.13, validates every skill with `skills-ref`, checks the manifest against what is on disk, builds the submission zip, and audits a bundled fixture end-to-end — deliberately without Playwright, so the no-browser path stays honest.
 
 If `skills-ref` is installed:
 
