@@ -10,6 +10,7 @@ from brand_ai_readiness.web import (
     app,
     coverage_view,
     normalize_public_url,
+    site_type_label,
     verdict_copy,
 )
 
@@ -73,6 +74,11 @@ def test_normalize_public_url():
         normalize_public_url("not-a-host")
 
 
+def test_site_type_label_is_not_category_label():
+    assert site_type_label("local_business") == "Local Business"
+    assert site_type_label("crawlability") == "Crawlability"
+
+
 def test_audit_api_rejects_empty_url():
     response = TestClient(app).post("/api/audit", json={"url": ""})
     assert response.status_code == 400
@@ -126,7 +132,7 @@ def test_audit_form_renders_report(monkeypatch):
         assert max_pages == 8
         return payload
 
-    monkeypatch.setattr("brand_ai_readiness.web.perform_audit", fake_audit)
+    monkeypatch.setattr("brand_ai_readiness.web.audited_payload", fake_audit)
     response = TestClient(app).post("/audit", data={"url": "example.com", "max_pages": "8"})
     assert response.status_code == 200
     html = response.text

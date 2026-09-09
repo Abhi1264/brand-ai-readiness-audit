@@ -84,17 +84,13 @@ def hosted_budget(max_pages: int) -> AuditBudget:
     )
 
 
-async def perform_audit(url: str, max_pages: int) -> dict[str, Any]:
-    report = await run_audit(url, hosted_budget(max_pages))
-    return report.model_dump_public()
-
-
 async def audited_payload(url: str, max_pages: int) -> dict[str, Any]:
     try:
         target = normalize_public_url(url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return await perform_audit(target, max_pages)
+    report = await run_audit(target, hosted_budget(max_pages))
+    return report.model_dump_public()
 
 
 def checked_label(iso: str | None) -> str:
@@ -111,6 +107,12 @@ def category_label(slug: str | None) -> str:
     if not slug:
         return ""
     return LABELS.get(slug, slug.replace("_", " "))
+
+
+def site_type_label(slug: str | None) -> str:
+    if not slug:
+        return ""
+    return slug.replace("_", " ").title()
 
 
 def _count(data: dict[str, Any], key: str) -> int:
@@ -238,7 +240,7 @@ def finding_categories(findings: list[Any] | None) -> list[str]:
 
 
 templates.env.filters["category_label"] = category_label
-templates.env.filters["site_type_label"] = category_label
+templates.env.filters["site_type_label"] = site_type_label
 
 
 def render_page(
@@ -302,5 +304,5 @@ async def audit_form(
         target = normalize_public_url(url)
     except ValueError as exc:
         return render_page(request, error=str(exc), url=url, max_pages=max_pages, status_code=400)
-    payload = await perform_audit(target, max_pages)
+    payload = await audited_payload(target, max_pages)
     return render_page(request, url=target, report=payload, max_pages=max_pages)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from brand_ai_readiness.models.findings import Finding
-from brand_ai_readiness.scoring.severity import RANK
+from brand_ai_readiness.scoring.severity import RANK, apply_severity
 
 
 def _merge(primary: Finding, extra: Finding) -> Finding:
@@ -19,7 +19,7 @@ def _merge(primary: Finding, extra: Finding) -> Finding:
         primary.impact_weight = max(primary.impact_weight, extra.impact_weight)
     if extra.evidence.metrics:
         primary.evidence.metrics[f"merged_{extra.id}"] = extra.evidence.metrics
-    return primary
+    return apply_severity(primary)
 
 
 def dedupe_findings(findings: list[Finding]) -> list[Finding]:

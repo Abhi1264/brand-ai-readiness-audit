@@ -59,6 +59,46 @@ def test_dedup_merges_same_mechanism():
     assert isinstance(merged[0], Finding)
 
 
+def test_dedup_recomputes_severity_after_merge():
+    from brand_ai_readiness.analysis.finding_factory import make_finding
+
+    low = make_finding(
+        id="CR-021",
+        category="crawlability",
+        title="max-snippet is set too low to carry a usable fact",
+        mechanism_code="max_snippet_limits_ai",
+        mechanism="x",
+        impact="y",
+        observation="one page",
+        source_urls=["https://a.test/1"],
+        action_summary="Raise max-snippet on pages that should be quotable.",
+        confidence=0.9,
+        scope_pages=1,
+        scope_fraction=0.1,
+        impact_weight=2,
+    )
+    extra = make_finding(
+        id="CR-021b",
+        category="crawlability",
+        title="max-snippet is set too low to carry a usable fact",
+        mechanism_code="max_snippet_limits_ai",
+        mechanism="x",
+        impact="y",
+        observation="nine more pages",
+        source_urls=["https://a.test/2"],
+        action_summary="Raise max-snippet on pages that should be quotable.",
+        confidence=0.9,
+        scope_pages=9,
+        scope_fraction=0.9,
+        impact_weight=2,
+    )
+    before = low.severity
+    merged = dedupe_findings([low, extra])[0]
+    assert before == "low"
+    assert merged.scope_fraction == 0.9
+    assert merged.severity == "medium"
+
+
 def test_image_only_facts_detected():
     report = report_from_snapshot(snapshot_from_site_dir("08_image_only_facts"))
     assert any("image" in item.title.lower() or "image" in item.evidence.lower() for item in report.findings)

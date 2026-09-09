@@ -8,6 +8,7 @@ from brand_ai_readiness.analysis.checks_engagement import engagement_findings
 from brand_ai_readiness.analysis.checks_entity import entity_findings
 from brand_ai_readiness.analysis.checks_structured import structured_findings
 from brand_ai_readiness.analysis.engagement import EngagementSignals, analyze_engagement
+from brand_ai_readiness.analysis.claims import extract_claims
 from brand_ai_readiness.analysis.entities import extract_entities
 from brand_ai_readiness.analysis.site_type import infer_site_type
 from brand_ai_readiness.analysis.structured import collect_structured
@@ -32,6 +33,7 @@ def enrich_snapshot(snapshot: CrawlSnapshot) -> CrawlSnapshot:
     infer_site_type(snapshot)
     collect_structured(snapshot)
     extract_entities(snapshot)
+    extract_claims(snapshot)
     return snapshot
 
 
@@ -91,8 +93,8 @@ def build_report(
     findings: list[Finding],
     signals: EngagementSignals | None = None,
 ) -> AuditReport:
-    findings = [apply_severity(item) for item in findings]
     findings = dedupe_findings(findings)
+    findings = [apply_severity(item) for item in findings]
     findings = sort_findings(findings)
     public: list[PublicFinding] = []
     for index, finding in enumerate(findings, start=1):

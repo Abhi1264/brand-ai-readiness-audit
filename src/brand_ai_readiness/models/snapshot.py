@@ -130,14 +130,12 @@ class EntityRecord(BaseModel):
     name: str
     kind: Literal["organization", "brand", "product", "service", "person", "location"]
     sources: list[str] = Field(default_factory=list)
-    aliases: list[str] = Field(default_factory=list)
-    context: list[str] = Field(default_factory=list)
     same_as: list[str] = Field(default_factory=list)
 
 
 class StructuredBlock(BaseModel):
     url: str
-    kind: Literal["jsonld", "opengraph", "meta", "microdata"]
+    kind: Literal["jsonld", "opengraph", "meta"]
     types: list[str] = Field(default_factory=list)
     data: dict[str, Any] = Field(default_factory=dict)
     parse_error: str | None = None
