@@ -15,6 +15,39 @@ _IDENTITY = re.compile(
     r"(teams|companies|customers|people)|the .+ (for|that))\b",
     re.I,
 )
+# Most sites state identity as "<Brand> does X", not "we do X". Missing that
+# form marked well-oriented documentation and product homepages as having no
+# identity statement at all.
+_IDENTITY_VERB = re.compile(
+    r"\b(is|are|was|builds?|makes?|provides?|sells?|offers?|delivers?|publishes?|"
+    r"streams?|powers?|helps?|connects?|turns?|runs?|operates?|supplies?|serves?|"
+    r"creates?|designs?|develops?|manages?|tracks?|handles?|has|have)\b",
+    re.I,
+)
+
+
+def _brand_subject_identity(text: str, brand: str) -> bool:
+    """True when the brand name is the subject of an action, near the top."""
+    if not brand or len(brand) < 3:
+        return False
+    head = text[:1200]
+    for match in re.finditer(re.escape(brand), head, re.I):
+        if _IDENTITY_VERB.search(head[match.end() : match.end() + 90]):
+            return True
+    return False
+
+
+def _brand_name(page: FetchedPage, soup: BeautifulSoup) -> str:
+    node = soup.find("meta", attrs={"property": "og:site_name"})
+    if node is not None and node.get("content"):
+        return str(node["content"]).strip()
+    title = page.title or ""
+    for separator in ("|", "\u2014", "\u2013", "-", ":"):
+        if separator in title:
+            return title.split(separator)[0].strip()
+    return title.strip()
+
+
 _AUDIENCE = re.compile(
     r"\b(for (teams|developers|marketers|founders|students|patients|shoppers|"
     r"enterprises|small businesses|families)|built for|designed for)\b",
@@ -55,7 +88,8 @@ def homepage_orientation(page: FetchedPage, soup: BeautifulSoup | None = None) -
     return HomepageOrientation(
         has_h1=bool(h1s),
         h1_text=h1s[0] if h1s else "",
-        identity_statement=bool(_IDENTITY.search(text)),
+        identity_statement=bool(_IDENTITY.search(text))
+        or _brand_subject_identity(text, _brand_name(page, soup)),
         audience_statement=bool(_AUDIENCE.search(text)),
         cta_texts=list(dict.fromkeys(cta_matches(text)))[:8],
         word_count=page.word_count,

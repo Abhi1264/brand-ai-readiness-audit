@@ -12,6 +12,63 @@ from brand_ai_readiness.models.findings import Finding
 from brand_ai_readiness.models.snapshot import CrawlSnapshot
 
 
+# schema.org subtypes of Organization. A site that publishes LocalBusiness,
+# CollegeOrUniversity or NGO markup has identified its organisation correctly and
+# must not be told to add Organization -- the finding's own title says "or
+# equivalent", and these are the equivalents.
+ORGANIZATION_EQUIVALENTS = {
+    "organization",
+    "localbusiness",
+    "corporation",
+    "ngo",
+    "nonprofit",
+    "onlinebusiness",
+    "educationalorganization",
+    "collegeoruniversity",
+    "school",
+    "governmentorganization",
+    "medicalorganization",
+    "newsmediaorganization",
+    "performinggroup",
+    "sportsorganization",
+    "airline",
+    "libarysystem",
+    "researchorganization",
+    "fundingscheme",
+    "consortium",
+    "cooperative",
+    "store",
+    "restaurant",
+    "medicalclinic",
+    "dentist",
+    "lodgingbusiness",
+    "professionalservice",
+    "financialservice",
+    "automotivebusiness",
+    "homeandconstructionbusiness",
+    "healthandbeautybusiness",
+    "foodestablishment",
+    "entertainmentbusiness",
+    "emergencyservice",
+    "legalservice",
+    "realestateagent",
+    "travelagency",
+    "selfstorage",
+    "sportsactivitylocation",
+    "childcare",
+    "employmentagency",
+    "insuranceagency",
+    "internetcafe",
+    "shoppingcenter",
+    "touristinformationcenter",
+}
+
+
+def has_organization_equivalent(types) -> bool:
+    """True when any observed JSON-LD type is an Organization or a subtype of one."""
+    return any(str(t).strip().lower().lstrip("schema:") in ORGANIZATION_EQUIVALENTS for t in types)
+
+
 def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     findings: list[Finding] = []
     pages = snapshot.successful_pages()
@@ -76,7 +133,12 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
         # Only require Organization when we actually saw an organization-like homepage.
         homepage = snapshot.homepage()
         org_needed = homepage is not None and homepage.word_count >= 20
-        if "Organization" in missing_expected and org_needed and snapshot.site_type != "unknown":
+        if (
+            "Organization" in missing_expected
+            and not has_organization_equivalent(types)
+            and org_needed
+            and snapshot.site_type != "unknown"
+        ):
             findings.append(
                 make_finding(
                     id="SD-003",

@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Tests (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: pip install -e ".[dev]"
+      # Playwright is deliberately not installed here. The audit must stay
+      # correct without a browser -- it reports rendering_status=unavailable
+      # rather than under-reporting silently -- and CI is where that promise
+      # gets checked.
+      - name: Run tests
+        run: python -m pytest -q
+
+  marketplace:
+    name: Marketplace conformance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      - name: Every skill satisfies the agentskills.io spec
+        run: |
+          set -e
+          for skill in skills/*/; do
+            [ -f "$skill/SKILL.md" ] || continue
+            echo "validating $skill"
+            npx --yes skills-ref@latest validate "./$skill"
+          done
+
+      - name: Manifest lists every skill with exactly one entrypoint
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          manifest = json.loads(pathlib.Path("marketplace.json").read_text())
+          listed = {s["id"] for s in manifest["skills"]}
+          on_disk = {p.parent.name for p in pathlib.Path("skills").glob("*/SKILL.md")}
+          assert listed == on_disk, f"manifest {sorted(listed)} != disk {sorted(on_disk)}"
+          entrypoints = [s for s in manifest["skills"] if s.get("entrypoint")]
+          assert len(entrypoints) == 1, f"expected exactly one entrypoint, got {len(entrypoints)}"
+          for s in manifest["skills"]:
+              assert (pathlib.Path(s["path"]) / "SKILL.md").is_file(), s["path"]
+          print(f"OK: {len(listed)} skills, entrypoint = {entrypoints[0]['id']}")
+          PY
+
+      - name: Submission zip builds and stays under the cap
+        run: python scripts/package_zip.py
+
+  audit:
+    name: End-to-end audit against a fixture site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev]"
+
+      # Audits a bundled fixture rather than a live site: no third-party
+      # traffic from CI, and the result does not depend on someone else's uptime.
+      - name: Serve the fixture
+        run: |
+          python -m http.server 8899 --directory tests/fixtures/sites/04_missing_structured &
+          for _ in $(seq 1 20); do curl -sf http://127.0.0.1:8899/ >/dev/null && break; sleep 0.5; done
+
+      - name: Audit it and validate the report
+        run: |
+          python -m brand_ai_readiness http://127.0.0.1:8899/ --no-render --max-pages 10 \
+            -o report.json
+          python skills/audit-orchestrator/scripts/validate_report.py report.json
+
+      - name: Markdown rendering works
+        run: |
+          python -m brand_ai_readiness http://127.0.0.1:8899/ --no-render --max-pages 5 \
+            --format markdown -o report.md
+          grep -q "^# AI-readiness audit" report.md
+
+      - name: stdout stays a clean JSON contract
+        run: |
+          python -m brand_ai_readiness http://127.0.0.1:8899/ --no-render --max-pages 3 \
+            2>/dev/null | python -c "import json,sys; json.load(sys.stdin); print('stdout is valid JSON')"
