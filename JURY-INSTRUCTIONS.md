@@ -33,7 +33,13 @@ Browser rendering is optional. Without Playwright installed the audit still comp
 | Default budget | 40 pages, 8 rendered, concurrency 4, 15s timeout, 2 MB per response |
 | Network | GET and HEAD only, enforced in code (`SAFE_METHODS`); non-read methods raise |
 | Output | One JSON object: `site`, `audited_at`, `summary`, `findings[]`, plus `coverage`, `scores`, `proactive_recommendations` |
+| Human-readable | Add `--format markdown` for the same data as a readable report |
 | Tests | `./.venv/bin/python -m pytest -q` — 133 passing, 1 skipped (a live-network test, opt-in) |
+
+## Read the output without running anything
+
+`examples/sample-report.json` and `examples/sample-report.md` are real output from the bundled
+fixture, with the exact command to regenerate them in `examples/README.md`.
 
 ## Verify the marketplace
 

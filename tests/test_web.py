@@ -14,7 +14,10 @@ from brand_ai_readiness.web import (
     verdict_copy,
 )
 
-SAMPLE_REPORT = Path(__file__).resolve().parents[1] / "examples" / "sample-report.json"
+# A frozen report with a known severity mix and known finding titles. These
+# tests assert on both, so they need a fixture they control -- examples/ is a
+# showcase artifact that changes whenever the audit improves.
+SAMPLE_REPORT = Path(__file__).resolve().parent / "fixtures" / "reports" / "verdict-sample.json"
 
 
 def _scored_sample() -> dict:

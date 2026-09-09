@@ -9,6 +9,7 @@ from pathlib import Path
 
 from brand_ai_readiness.config import AuditBudget
 from brand_ai_readiness.orchestration.compose import run_audit
+from brand_ai_readiness.orchestration.render_markdown import render_markdown
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -16,7 +17,13 @@ def build_parser() -> argparse.ArgumentParser:
         description="Audit a website for AI discoverability and on-site engagement (read-only)."
     )
     parser.add_argument("url", help="Public website URL to audit")
-    parser.add_argument("-o", "--output", help="Write JSON report to this path (default: stdout)")
+    parser.add_argument("-o", "--output", help="Write the report to this path (default: stdout)")
+    parser.add_argument(
+        "--format",
+        choices=("json", "markdown"),
+        default="json",
+        help="json is the report contract; markdown renders the same data for a human reader",
+    )
     parser.add_argument("--max-pages", type=int, default=40)
     parser.add_argument("--max-renders", type=int, default=8)
     parser.add_argument("--no-render", action="store_true", help="Skip Playwright even if installed")
@@ -53,7 +60,10 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         return 130
     payload = report.model_dump_public()
-    text = json.dumps(payload, indent=2, ensure_ascii=False)
+    if args.format == "markdown":
+        text = render_markdown(payload)
+    else:
+        text = json.dumps(payload, indent=2, ensure_ascii=False)
     if args.output:
         path = Path(args.output)
         path.write_text(text + "\n", encoding="utf-8")

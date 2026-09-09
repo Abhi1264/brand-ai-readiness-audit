@@ -43,7 +43,11 @@ Read [references/orchestration.md](references/orchestration.md) for composition 
 
 ## Output
 
-A single JSON object with at least:
+The report is one JSON object -- that is the contract. The same data can be rendered for a human
+reader with `--format markdown`, which orders findings so the first is the first fix and states
+what the audit could not check. Nothing is computed during rendering, so the two cannot disagree.
+
+The JSON object contains at least:
 
 - `site`, `audited_at`
 - `summary.total_findings`, `summary.critical`, `summary.high`, `summary.medium`

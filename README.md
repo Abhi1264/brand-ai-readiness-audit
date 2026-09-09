@@ -57,6 +57,12 @@ flowchart TD
 `./run-jury.sh https://example.com` sets up, tests, audits, and validates in one command. See
 [JURY-INSTRUCTIONS.md](JURY-INSTRUCTIONS.md) for expected output, runtime, and known limitations.
 
+The report is JSON by design -- it is a contract another tool can consume. `--format markdown`
+renders the same data for a person: severity-ordered, with a "start here" list, the mechanism and
+cost of each finding, where to change it, and an explicit note on what the audit could not check.
+Real output for both is in [examples/](examples/), generated from a bundled fixture so anyone can
+regenerate it.
+
 ## What on-page auditing can and cannot fix
 
 The factors correlating most strongly with whether an AI assistant cites a brand are **off-site** —
