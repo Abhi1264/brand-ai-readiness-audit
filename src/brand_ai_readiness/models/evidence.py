@@ -5,6 +5,21 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 
+def _render_item(item: Any) -> str:
+    """Render one metric value as prose.
+
+    Evidence is a sentence a non-expert reads, so a container must never reach
+    it as a Python repr. Dicts nested inside lists are the case that matters:
+    the render-gap and canonical checks both report their examples that way.
+    """
+    if isinstance(item, dict):
+        inner = ", ".join(f"{k}: {_render_item(v)}" for k, v in list(item.items())[:8])
+        return f"({inner})"
+    if isinstance(item, (list, tuple)):
+        return ", ".join(_render_item(sub) for sub in list(item)[:8])
+    return str(item)
+
+
 class EvidencePayload(BaseModel):
     observation: str
     source_urls: list[str] = Field(default_factory=list)
@@ -17,16 +32,13 @@ class EvidencePayload(BaseModel):
         if self.metrics:
             metric_bits = []
             for key, value in self.metrics.items():
-                if isinstance(value, list):
-                    shown = ", ".join(str(item) for item in value[:8])
+                if isinstance(value, (list, tuple)):
+                    shown = _render_item(value)
                     if len(value) > 8:
                         shown += f" (+{len(value) - 8} more)"
                     metric_bits.append(f"{key}={shown}")
-                elif isinstance(value, dict):
-                    inner = ", ".join(f"{k}: {v}" for k, v in list(value.items())[:8])
-                    metric_bits.append(f"{key}=({inner})")
                 else:
-                    metric_bits.append(f"{key}={value}")
+                    metric_bits.append(f"{key}={_render_item(value)}")
             parts.append("Metrics: " + "; ".join(metric_bits) + ".")
         if self.source_urls:
             urls = ", ".join(self.source_urls[:8])

@@ -128,3 +128,27 @@ def test_legal_and_account_pages_are_not_content_roles():
 
 def test_unlimited_max_snippet_produces_no_finding():
     assert "max_snippet_limits_ai" not in _codes([_page(meta='<meta name="robots" content="max-snippet:-1">')])
+
+
+# --- evidence rendering ----------------------------------------------------
+
+
+def test_evidence_never_renders_a_python_repr():
+    """Metrics become a sentence a non-expert reads; a repr leaks implementation.
+
+    The render-gap finding reports its examples as a list of dicts, which is how
+    a raw repr reached the evidence string.
+    """
+    from brand_ai_readiness.models.evidence import EvidencePayload
+
+    text = EvidencePayload(
+        observation="Observed.",
+        metrics={
+            "examples": [{"url": "https://x.test/", "raw_words": 2, "rendered_words": 59}],
+            "counts": {"checked": 3, "failed": 1},
+            "nested": [{"a": {"b": 1}}],
+        },
+    ).as_text()
+    for token in ("{'", "': ", "[{", "}]"):
+        assert token not in text, f"evidence leaked a Python repr fragment {token!r}: {text}"
+    assert "url: https://x.test/" in text
