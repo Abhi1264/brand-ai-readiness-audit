@@ -65,7 +65,6 @@ REPORT = {
 
 
 def test_most_severe_finding_comes_first():
-    """The reader must be able to start at the top and work down."""
     md = render_markdown(REPORT)
     assert md.index("A critical thing") < md.index("A low severity thing")
     assert md.index("## Start here") < md.index("## Findings")

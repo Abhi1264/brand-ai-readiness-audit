@@ -6,12 +6,6 @@ from pydantic import BaseModel, Field
 
 
 def _render_item(item: Any) -> str:
-    """Render one metric value as prose.
-
-    Evidence is a sentence a non-expert reads, so a container must never reach
-    it as a Python repr. Dicts nested inside lists are the case that matters:
-    the render-gap and canonical checks both report their examples that way.
-    """
     if isinstance(item, dict):
         inner = ", ".join(f"{k}: {_render_item(v)}" for k, v in list(item.items())[:8])
         return f"({inner})"

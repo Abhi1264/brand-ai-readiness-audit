@@ -1,18 +1,3 @@
-"""Live terminal progress for an audit run.
-
-Written against raw ANSI rather than a TUI library on purpose. The marketplace
-claims to be portable, self-contained and deterministic, and a rendering
-dependency would weaken all three for something that is presentation only.
-
-Three rules hold this apart from the report:
-
-* Everything is written to **stderr**. stdout carries the report and stays
-  pipeable, so `... | jq` keeps working.
-* When stderr is not a terminal -- a pipe, a CI log, run-jury.sh output being
-  captured -- it degrades to plain one-line-per-phase text with no escapes.
-* Nothing here computes anything. It reports what the pipeline is doing.
-"""
-
 from __future__ import annotations
 
 import os
@@ -31,7 +16,8 @@ _PHASES: tuple[tuple[str, str], ...] = (
     ("analyse", "analysing"),
     ("report", "building report"),
 )
-
+_ORDER = tuple(key for key, _ in _PHASES)
+_LABELS = dict(_PHASES)
 _SEVERITY_ORDER = ("critical", "high", "medium", "low")
 
 
@@ -44,8 +30,6 @@ def _supports_ansi(stream: TextIO) -> bool:
 
 
 class Progress:
-    """No-op base. Every call is safe and cheap."""
-
     def phase(self, key: str, detail: str = "") -> None: ...
     def detail(self, key: str, detail: str) -> None: ...
     def skip(self, key: str, why: str = "") -> None: ...
@@ -59,8 +43,6 @@ class TerminalProgress(Progress):
     stream: TextIO = field(default_factory=lambda: sys.stderr)
     site: str = ""
     _ansi: bool = field(default=False, init=False)
-    _order: list[str] = field(default_factory=list, init=False)
-    _labels: dict[str, str] = field(default_factory=dict, init=False)
     _state: dict[str, str] = field(default_factory=dict, init=False)
     _details: dict[str, str] = field(default_factory=dict, init=False)
     _current: str = field(default="", init=False)
@@ -70,19 +52,15 @@ class TerminalProgress(Progress):
 
     def __post_init__(self) -> None:
         self._ansi = _supports_ansi(self.stream)
-        self._order = [key for key, _ in _PHASES]
-        self._labels = dict(_PHASES)
-        self._state = {key: "pending" for key in self._order}
+        self._state = {key: "pending" for key in _ORDER}
         if self.site:
             self._write(f"\n  auditing {self.site}\n\n")
-
-    # -- plumbing ---------------------------------------------------------
 
     def _write(self, text: str) -> None:
         try:
             self.stream.write(text)
             self.stream.flush()
-        except (ValueError, OSError):  # stream closed underneath us
+        except (ValueError, OSError):
             pass
 
     def _marker(self, key: str) -> str:
@@ -101,8 +79,8 @@ class TerminalProgress(Progress):
         if self._lines:
             self._write(f"\033[{self._lines}A")
         out = []
-        for key in self._order:
-            label = self._labels[key]
+        for key in _ORDER:
+            label = _LABELS[key]
             detail = self._details.get(key, "")
             dim_label = label if self._state[key] != "pending" else f"\033[90m{label}\033[0m"
             line = f"  {self._marker(key)} {dim_label:<22}"
@@ -112,12 +90,10 @@ class TerminalProgress(Progress):
         self._write("\n".join(out) + "\n")
         self._lines = len(out)
 
-    # -- API --------------------------------------------------------------
-
     def phase(self, key: str, detail: str = "") -> None:
         if key not in self._state:
             return
-        for previous in self._order:
+        for previous in _ORDER:
             if previous == key:
                 break
             if self._state[previous] == "active":
@@ -129,7 +105,7 @@ class TerminalProgress(Progress):
         if self._ansi:
             self._render()
         else:
-            self._write(f"  {self._labels[key]}{(': ' + detail) if detail else ''}\n")
+            self._write(f"  {_LABELS[key]}{(': ' + detail) if detail else ''}\n")
 
     def detail(self, key: str, detail: str) -> None:
         if key not in self._state:
@@ -147,7 +123,7 @@ class TerminalProgress(Progress):
         if self._ansi:
             self._render()
         else:
-            self._write(f"  {self._labels[key]}: {why or 'skipped'}\n")
+            self._write(f"  {_LABELS[key]}: {why or 'skipped'}\n")
 
     def tick(self, done: int, queued: int = 0) -> None:
         self._frame += 1
@@ -164,7 +140,7 @@ class TerminalProgress(Progress):
             self._write(f"  failed: {message}\n")
 
     def done(self, report: dict) -> None:
-        for key in self._order:
+        for key in _ORDER:
             if self._state[key] == "active":
                 self._state[key] = "done"
         if self._ansi:
@@ -187,7 +163,6 @@ def _bar(counts: dict, ansi: bool) -> str:
 
 
 def summarise(report: dict, *, elapsed: float | None = None, ansi: bool = False) -> str:
-    """The closing panel. Pure formatting of values already in the report."""
     summary = report.get("summary") or {}
     coverage = report.get("coverage") or {}
     scores = report.get("scores") or {}

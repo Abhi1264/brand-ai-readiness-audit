@@ -14,20 +14,13 @@ from brand_ai_readiness.rendering.compare import compare_raw_and_rendered
 
 
 def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool) -> list[Finding]:
-    """Compare declared robots policy against what the origin actually serves.
-
-    Only a *status* divergence triggers a finding. Body-length differences alone
-    are not evidence of bot policy — personalization, A/B tests, geo variants and
-    cookie walls all move body size — so length is recorded as supporting metrics
-    and never as the trigger.
-    """
     if snapshot.access_probe_status != "complete":
         return []
     browser = snapshot.browser_probe()
     search_probes = snapshot.search_probes()
     training_probes = snapshot.training_probes()
-    # Paywall/geo/auth that refuses the browser too is not an AI-crawler policy.
     if browser is None or not browser.reachable() or not search_probes:
+        return []
         return []
 
     blocked = [probe for probe in search_probes if probe.status_code >= 400]
@@ -39,7 +32,6 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
     contradicted = [probe for probe in blocked if robots_known and probe.robots_allows]
     consistent = [probe for probe in blocked if robots_known and not probe.robots_allows]
     undetermined = [] if robots_known else list(blocked)
-    # Flat scalars — nested dicts render as a Python repr in evidence.
     metrics: dict[str, object] = {
         "probe_url": snapshot.start_url,
         "probe_method": browser.method,
@@ -103,7 +95,6 @@ def _access_probe_findings(snapshot: CrawlSnapshot, robots_already_flagged: bool
             )
         )
 
-    # Skip when CR-001 already reported the same robots exclusion.
     if consistent and not contradicted and not robots_already_flagged:
         names = ", ".join(probe.agent for probe in consistent)
         findings.append(
@@ -196,11 +187,6 @@ _CONTENT_ROLES = {"homepage", "about", "product", "service", "pricing", "article
 
 
 def _snippet_findings(snapshot: CrawlSnapshot) -> list[Finding]:
-    """Directives that suppress the snippet a page would otherwise be cited from.
-
-    Restricted to content-bearing roles: nosnippet on a legal or account page is
-    ordinary practice, not a discoverability problem.
-    """
     pages = [page for page in snapshot.successful_pages() if page.role in _CONTENT_ROLES]
     if not pages:
         return []
@@ -378,7 +364,6 @@ def _snippet_findings(snapshot: CrawlSnapshot) -> list[Finding]:
 
 
 def _challenge_findings(snapshot: CrawlSnapshot) -> list[Finding]:
-    """The origin served a bot challenge instead of content."""
     blocked = blocked_pages(snapshot)
     if not blocked:
         return []

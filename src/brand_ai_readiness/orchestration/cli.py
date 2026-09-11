@@ -55,8 +55,6 @@ def budget_from_args(args: argparse.Namespace) -> AuditBudget:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    # Default to warnings only. At INFO, httpx logs a line per request, which
-    # buries anything the audit itself has to say. --verbose brings it all back.
     logging.basicConfig(
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(levelname)s %(name)s: %(message)s",
@@ -67,8 +65,6 @@ def main(argv: list[str] | None = None) -> int:
     url = args.url.strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    # Progress is stderr-only so stdout stays a clean report for piping, and is
-    # off under --verbose, where log lines would fight the redraw.
     reporter = make_progress(not args.no_progress and not args.verbose, site_label(url))
     try:
         report = asyncio.run(run_audit(url, budget_from_args(args), reporter))

@@ -32,14 +32,12 @@ def test_manifest_and_every_skill_are_shipped():
 
 
 def test_the_implementation_ships_with_the_skills():
-    """Skill scripts import brand_ai_readiness; shipping skills without it is a dead package."""
     shipped = _shipped()
     assert any(path.startswith("src/brand_ai_readiness/") for path in shipped)
     assert "pyproject.toml" in shipped
 
 
 def test_jury_facing_docs_are_shipped():
-    """A judge on a clean machine needs the one command and the caveats."""
     shipped = _shipped()
     assert "JURY-INSTRUCTIONS.md" in shipped
     assert "run-jury.sh" in shipped
@@ -53,11 +51,6 @@ def test_deployment_scaffolding_is_not_shipped():
 
 
 def test_allowlist_fails_closed_on_unknown_top_level_entries():
-    """A denylist ships stray directories silently; this must not.
-
-    A leftover virtualenv or downloaded artifact would otherwise land in a
-    submission with a hard 50 MB cap.
-    """
     assert ".venv" not in package_zip.INCLUDE
     stray = ROOT / "some-unlisted-scratch-dir" / "big.bin"
     assert not package_zip._wanted(stray)

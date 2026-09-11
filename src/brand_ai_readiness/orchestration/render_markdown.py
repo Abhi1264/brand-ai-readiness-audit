@@ -1,14 +1,3 @@
-"""Render an audit report as Markdown.
-
-The JSON report is the contract; this is the same data arranged for a person.
-The rubric asks for a report "a non-expert could act on", and a non-expert
-cannot act on a JSON object: they need to know what to fix first, why it matters
-in one sentence, what the evidence was, and where to change it.
-
-Nothing is computed here. Every value comes from the report, so the Markdown and
-the JSON can never disagree.
-"""
-
 from __future__ import annotations
 
 from typing import Any
@@ -81,8 +70,6 @@ def _finding_block(index: int, finding: dict[str, Any]) -> list[str]:
     if action.get("rationale"):
         out += [f"*Why we are confident:* {action['rationale']}", ""]
     urls = finding.get("source_urls") or []
-    # as_text() already appends "Observed on: ..." to the evidence, so repeating
-    # the same URLs underneath it is noise.
     if urls and "Observed on:" not in str(finding.get("evidence", "")):
         shown = ", ".join(urls[:5])
         more = f" (+{len(urls) - 5} more)" if len(urls) > 5 else ""

@@ -12,10 +12,7 @@ from brand_ai_readiness.models.findings import Finding
 from brand_ai_readiness.models.snapshot import CrawlSnapshot
 
 
-# schema.org subtypes of Organization. A site that publishes LocalBusiness,
-# CollegeOrUniversity or NGO markup has identified its organisation correctly and
-# must not be told to add Organization -- the finding's own title says "or
-# equivalent", and these are the equivalents.
+# schema.org Organization and common subtypes. Demanding Organization beside these is wrong.
 ORGANIZATION_EQUIVALENTS = {
     "organization",
     "localbusiness",
@@ -32,7 +29,7 @@ ORGANIZATION_EQUIVALENTS = {
     "performinggroup",
     "sportsorganization",
     "airline",
-    "libarysystem",
+    "librarysystem",
     "researchorganization",
     "fundingscheme",
     "consortium",
@@ -65,7 +62,6 @@ ORGANIZATION_EQUIVALENTS = {
 
 
 def has_organization_equivalent(types) -> bool:
-    """True when any observed JSON-LD type is an Organization or a subtype of one."""
     return any(str(t).strip().lower().lstrip("schema:") in ORGANIZATION_EQUIVALENTS for t in types)
 
 
@@ -130,7 +126,6 @@ def structured_findings(snapshot: CrawlSnapshot) -> list[Finding]:
     else:
         expected = expected_schema_types(snapshot.site_type)
         missing_expected = [item for item in expected if item not in types and item not in {"BreadcrumbList"}]
-        # Only require Organization when we actually saw an organization-like homepage.
         homepage = snapshot.homepage()
         org_needed = homepage is not None and homepage.word_count >= 20
         if (

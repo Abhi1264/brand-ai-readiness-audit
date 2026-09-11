@@ -49,11 +49,7 @@ def _codes(snapshot: CrawlSnapshot) -> set[str]:
     return {item.mechanism_code for item in crawl_findings(snapshot)}
 
 
-# --- the four cells of the robots-vs-server table -------------------------
-
-
 def test_robots_allows_but_server_blocks_is_critical():
-    """The divergent cell: robots.txt says yes, the edge says no."""
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser"),
@@ -68,7 +64,6 @@ def test_robots_allows_but_server_blocks_is_critical():
 
 
 def test_robots_blocks_and_server_blocks_is_policy_not_defect():
-    """The consistent cell: deliberate exclusion, reported at lower severity."""
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser"),
@@ -84,7 +79,6 @@ def test_robots_blocks_and_server_blocks_is_policy_not_defect():
 
 
 def test_robots_blocks_but_server_allows_emits_no_probe_finding():
-    """No 4xx means the probe has nothing to report, whatever robots.txt says."""
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser"),
@@ -106,11 +100,7 @@ def test_everyone_allowed_emits_nothing():
     assert "ai_crawler_edge_blocked" not in _codes(snapshot)
 
 
-# --- false-positive guards ------------------------------------------------
-
-
 def test_paywalled_origin_is_not_an_ai_crawler_finding():
-    """If the browser is refused too, this is not bot policy."""
     snapshot = _snapshot(
         [
             _probe("browser", 401, bot_class="browser"),
@@ -121,7 +111,6 @@ def test_paywalled_origin_is_not_an_ai_crawler_finding():
 
 
 def test_body_length_difference_alone_does_not_trigger():
-    """Personalization and A/B tests move body size without any bot policy."""
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser", body=40000),
@@ -138,7 +127,6 @@ def test_incomplete_probe_is_never_evidence():
 
 
 def test_probe_finding_is_suppressed_when_robots_already_flagged():
-    """A site that blocks our own crawler too is covered by the robots finding."""
     robots = "User-agent: *\nDisallow: /\n"
     page = page_from_html(HOME, PAGE, role="homepage", robots_blocked=True)
     snapshot = snapshot_from_pages([page], start_url=HOME, robots_raw=robots)
@@ -152,9 +140,6 @@ def test_probe_finding_is_suppressed_when_robots_already_flagged():
     assert "ai_crawler_excluded_by_policy" not in codes
 
 
-# --- scoring ---------------------------------------------------------------
-
-
 def test_blocked_ai_crawlers_cap_crawlability_score():
     open_site = _snapshot([_probe("browser", 200, bot_class="browser"), _probe("OAI-SearchBot", 200)])
     blocked_site = _snapshot(
@@ -166,9 +151,6 @@ def test_blocked_ai_crawlers_cap_crawlability_score():
     )
     assert compute_scorecard(open_site).components["crawlability"] == 100
     assert compute_scorecard(blocked_site).components["crawlability"] <= 30
-
-
-# --- live probe mechanics against a local UA-gated server -------------------
 
 
 def test_probe_detects_ua_gating_end_to_end(serve_ua_gated_site):
@@ -185,14 +167,12 @@ def test_probe_detects_ua_gating_end_to_end(serve_ua_gated_site):
     assert len(findings) == 1
     assert findings[0].severity == "critical"
     assert "OAI-SearchBot" in findings[0].evidence.as_text()
-    # Claude-SearchBot was served normally and must not be named as blocked.
     assert "Claude-SearchBot" not in findings[0].suggested_action.summary
 
 
 def test_probe_does_not_fetch_pages_or_alter_crawl(serve_ua_gated_site):
     url = serve_ua_gated_site("12_ua_gated", ("OAI-SearchBot",))
     snapshot = crawl_site_sync(url, AuditBudget(max_pages=3, enable_render=False))
-    # Probes are diagnostics, not crawled pages.
     assert all(page.status_code != 403 for page in snapshot.pages)
     assert snapshot.stats.pages_crawled >= 1
 
@@ -207,27 +187,17 @@ def test_probe_can_be_disabled(serve_ua_gated_site):
     assert "ai_crawler_edge_blocked" not in {f.mechanism_code for f in crawl_findings(snapshot)}
 
 
-# --- the probe must not cost more than the crawl it informs -----------------
-
-
 def test_probe_budget_fails_fast():
-    """Origins that tarpit unfamiliar agents must not blow the time budget.
-
-    Without this the probe inherits the crawl's retries and timeout, so one
-    hanging origin costs retries x timeout x (HEAD then GET) per agent.
-    """
     from brand_ai_readiness.crawler.access_probe import _probe_budget
 
     slow = AuditBudget(request_timeout_s=15.0, max_retries=2)
     probe = _probe_budget(slow)
     assert probe.max_retries == 0
     assert probe.request_timeout_s <= 8.0
-    # The crawl's own budget must be untouched.
     assert slow.max_retries == 2 and slow.request_timeout_s == 15.0
 
 
 def test_probe_status_reaches_the_report():
-    """A reader must be able to tell whether the probe actually ran."""
     from brand_ai_readiness.orchestration.compose import report_from_snapshot
 
     snapshot = _snapshot([_probe("browser", 200, bot_class="browser"), _probe("OAI-SearchBot", 200)])
@@ -242,7 +212,6 @@ def test_probe_status_reaches_the_report():
 
 
 def test_unreadable_robots_is_not_reported_as_permission():
-    """Absence of robots.txt is not the same claim as robots.txt permitting an agent."""
     snapshot = _snapshot(
         [_probe("browser", 200, bot_class="browser"), _probe("OAI-SearchBot", 403, robots_allows=True)]
     )
@@ -265,17 +234,7 @@ def test_readable_robots_still_yields_the_critical_contradiction():
     assert len(findings) == 1 and findings[0].severity == "critical"
 
 
-# --- bot taxonomy: training-class blocks are not defects -------------------
-
-
 def test_training_only_block_is_not_a_finding():
-    """Opting out of training while staying in search is supported, not broken.
-
-    OpenAI's GPTBot is training-only; OAI-SearchBot decides whether a page can
-    appear in ChatGPT search answers. A site that blocks the former and allows
-    the latter has configured itself deliberately and correctly, and flagging it
-    would be a false positive on the most common intentional setup.
-    """
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser"),
@@ -303,7 +262,6 @@ def test_training_block_does_not_reduce_the_crawlability_score():
 
 
 def test_search_class_block_is_still_caught_when_training_is_allowed():
-    """The inverse configuration is the real problem and must still fire."""
     snapshot = _snapshot(
         [
             _probe("browser", 200, bot_class="browser"),

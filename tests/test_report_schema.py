@@ -66,9 +66,6 @@ def test_excellent_site_is_not_a_false_positive_storm():
     assert report.summary.total_findings <= 6
 
 
-# --- the shipped example must not drift from what the tool emits -----------
-
-
 def _sample_report():
     import json
     from pathlib import Path
@@ -78,24 +75,12 @@ def _sample_report():
 
 
 def test_sample_report_validates():
-    """The example must satisfy the same contract as live output.
-
-    Deliberately asserts no fixed site name or finding count: pinning those is
-    what made the previous version of this test obsolete the moment the example
-    was regenerated.
-    """
     report = validate_report_payload(_sample_report())
     assert report.site
     assert report.summary.total_findings == len(report.findings)
 
 
 def test_sample_report_is_not_stale():
-    """The shipped example is the first thing a reader opens.
-
-    It previously drifted: it was missing scores, site_type, mechanism, impact
-    and source_urls, so it showed a weaker report than the tool actually
-    produces. This compares its shape against a freshly generated one.
-    """
     import json
 
     from brand_ai_readiness.orchestration.compose import report_from_snapshot
@@ -121,7 +106,6 @@ def test_sample_markdown_matches_the_sample_json():
     root = Path(__file__).resolve().parents[1]
     shipped = (root / "examples" / "sample-report.md").read_text(encoding="utf-8")
     sample = _sample_report()
-    # Titles are the load-bearing content; timestamps differ between the two runs.
     for finding in sample["findings"]:
         assert finding["title"] in shipped
     assert render_markdown(sample).startswith("# AI-readiness audit")

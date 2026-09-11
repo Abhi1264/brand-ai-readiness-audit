@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Build the submission zip.
-
-The marketplace root is this repository, so the zip must contain
-marketplace.json at its root plus everything needed to actually run the audit.
-
-This uses an ALLOWLIST rather than a list of things to skip. A denylist fails
-open: anything not explicitly named -- a stray virtualenv, a downloaded model,
-a scratch directory -- ships silently, and the submission has a hard 50 MB cap.
-An allowlist fails closed, which is the safe direction for a deadline.
-"""
-
 from __future__ import annotations
 
 import sys
@@ -18,35 +7,30 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "brand-ai-readiness-audit.zip"
-
 MAX_ZIP_MB = 50.0
 
-# Top-level entries that belong in the marketplace, and why.
-INCLUDE = {
-    "marketplace.json": "required manifest, must sit at the zip root",
-    "README.md": "required by the brief: describes each skill and the entrypoint",
-    "JURY-INSTRUCTIONS.md": "one-command run, expected output, and known limitations",
-    "run-jury.sh": "the one command",
-    "LICENSE": "license referenced by every SKILL.md",
-    "skills": "the skills themselves",
-    "src": "the implementation the skill scripts import",
-    "examples": "sample report showing the output contract",
-    "tests": "fixture sites and checks that evidence the detection logic",
-    "scripts": "this packaging script",
-    "pyproject.toml": "dependency and packaging metadata",
-    "requirements.txt": "pinned runtime dependencies",
-}
-
-# Deliberately excluded, and why. Kept explicit so the reasoning survives.
-EXCLUDE_NOTES = {
-    "design-system": "UI design system for the local web viewer; not part of the marketplace",
-    "app.py": "Vercel entrypoint for the optional web viewer",
-    "vercel.json": "deployment config",
-    ".vercelignore": "deployment config",
-    ".env.example": "only documents the optional LLM polish; no key is required",
-    ".gitignore": "repository hygiene, not marketplace content",
-}
-
+INCLUDE = frozenset({
+    "marketplace.json",
+    "README.md",
+    "JURY-INSTRUCTIONS.md",
+    "run-jury.sh",
+    "LICENSE",
+    "skills",
+    "src",
+    "examples",
+    "tests",
+    "scripts",
+    "pyproject.toml",
+    "requirements.txt",
+})
+EXCLUDE = frozenset({
+    "design-system",
+    "app.py",
+    "vercel.json",
+    ".vercelignore",
+    ".env.example",
+    ".gitignore",
+})
 SKIP_DIR_NAMES = {
     "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     ".playwright", ".vercel", "htmlcov", "dist", "build",
@@ -92,13 +76,13 @@ def main() -> int:
         OUT.unlink()
         raise SystemExit(f"ZIP is {size_mb:.1f} MB, over the {MAX_ZIP_MB:.0f} MB submission cap")
 
-    excluded = sorted(p.name for p in ROOT.iterdir() if p.name in EXCLUDE_NOTES)
+    excluded = sorted(p.name for p in ROOT.iterdir() if p.name in EXCLUDE)
     print(f"Wrote {OUT} ({len(names)} files, {size_mb:.2f} MB / {MAX_ZIP_MB:.0f} MB cap)")
     if excluded:
         print("Excluded by design: " + ", ".join(excluded))
     unknown = sorted(
         p.name for p in ROOT.iterdir()
-        if p.name not in INCLUDE and p.name not in EXCLUDE_NOTES
+        if p.name not in INCLUDE and p.name not in EXCLUDE
         and not p.name.startswith(".") and p.name != OUT.name
     )
     if unknown:

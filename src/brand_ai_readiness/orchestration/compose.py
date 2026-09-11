@@ -43,24 +43,15 @@ def collect_skill_findings(
     snapshot: CrawlSnapshot, signals: EngagementSignals | None = None
 ) -> list[Finding]:
     signals = signals or analyze_engagement(snapshot)
-    # When no real homepage content was received -- a bot challenge, a 404, an
-    # error body -- the content skills never saw the site. Running them would
-    # report a missing H1, absent structured data and a weak value proposition
-    # for a page the brand never served: several confident findings, all false.
-    # The crawl skill still reports the block or the HTTP failure, which is the
-    # only honest thing to say about the site.
-    if homepage_content_unusable(snapshot) is not None:
-        try:
-            return crawl_findings(snapshot)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("skill crawl-render-audit failed: %s", exc)
-            return []
-    buckets = [
-        ("crawl-render-audit", crawl_findings),
-        ("structured-data-audit", structured_findings),
-        ("freshness-entity-audit", entity_findings),
-        ("engagement-audit", lambda snap: engagement_findings(snap, signals)),
-    ]
+    buckets = [("crawl-render-audit", crawl_findings)]
+    if homepage_content_unusable(snapshot) is None:
+        buckets.extend(
+            [
+                ("structured-data-audit", structured_findings),
+                ("freshness-entity-audit", entity_findings),
+                ("engagement-audit", lambda snap: engagement_findings(snap, signals)),
+            ]
+        )
     collected: list[Finding] = []
     for name, fn in buckets:
         try:

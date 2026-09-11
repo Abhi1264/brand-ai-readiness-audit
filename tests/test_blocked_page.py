@@ -24,9 +24,6 @@ def _assess(html, *, status=200, title=None, words=40, headers=None):
     )
 
 
-# --- detection ------------------------------------------------------------
-
-
 def test_vendor_marker_alone_is_enough():
     assert _assess('<html><body><div class="cf-browser-verification"></div></body></html>').is_blocked
 
@@ -43,15 +40,11 @@ def test_challenge_wording_with_an_empty_body():
     assert _assess(DENIED, status=200, title="Access Denied", words=12).is_blocked
 
 
-# --- false-positive guards ------------------------------------------------
-
-
 def test_ordinary_page_is_not_a_challenge():
     assert not _assess(REAL, title="Meridian Freight", words=45).is_blocked
 
 
 def test_article_about_access_denial_is_not_a_challenge():
-    """Wording alone must not convict a page that was actually served."""
     html = (
         "<html><head><title>Why you keep seeing Access Denied errors</title></head><body>"
         "<h1>Why you keep seeing Access Denied errors</h1><p>" + ("Explanatory prose. " * 60)
@@ -61,12 +54,8 @@ def test_article_about_access_denial_is_not_a_challenge():
 
 
 def test_a_plain_403_without_challenge_signals_is_not_convicted():
-    """One permission-protected URL is not evidence of a bot wall."""
     html = "<html><head><title>Members area</title></head><body><p>" + ("Sign in required. " * 40) + "</p></body></html>"
     assert not _assess(html, status=403, title="Members area", words=120).is_blocked
-
-
-# --- what the orchestrator does with it -----------------------------------
 
 
 def test_served_homepage_is_analysed_normally():
@@ -75,10 +64,6 @@ def test_served_homepage_is_analysed_normally():
 
 
 def test_thin_but_served_homepage_is_still_analysed():
-    """A 4-word homepage is a real engagement defect, not a fetch failure.
-
-    Suppressing it would hide exactly the problem the audit exists to find.
-    """
     snapshot = snapshot_from_site_dir("10_strong_disco_weak_engagement")
     assert homepage_content_unusable(snapshot) is None
     assert any(f.category == "engagement" for f in report_from_snapshot(snapshot).findings)
@@ -96,6 +81,5 @@ def test_content_skills_are_skipped_and_the_report_says_so():
     snapshot = snapshot_from_pages([page], start_url=HOME)
     report = report_from_snapshot(snapshot)
     categories = {f.category for f in report.findings}
-    # Nothing may be asserted about content the site never served.
     assert not categories & {"structured_data", "entity", "engagement", "freshness"}
     assert any("were skipped because" in line for line in report.coverage.limitations)

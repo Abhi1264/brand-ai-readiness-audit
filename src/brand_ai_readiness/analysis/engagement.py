@@ -15,9 +15,7 @@ _IDENTITY = re.compile(
     r"(teams|companies|customers|people)|the .+ (for|that))\b",
     re.I,
 )
-# Most sites state identity as "<Brand> does X", not "we do X". Missing that
-# form marked well-oriented documentation and product homepages as having no
-# identity statement at all.
+# Also matches "<Brand> does X", not only "we do X".
 _IDENTITY_VERB = re.compile(
     r"\b(is|are|was|builds?|makes?|provides?|sells?|offers?|delivers?|publishes?|"
     r"streams?|powers?|helps?|connects?|turns?|runs?|operates?|supplies?|serves?|"
@@ -27,7 +25,6 @@ _IDENTITY_VERB = re.compile(
 
 
 def _brand_subject_identity(text: str, brand: str) -> bool:
-    """True when the brand name is the subject of an action, near the top."""
     if not brand or len(brand) < 3:
         return False
     head = text[:1200]

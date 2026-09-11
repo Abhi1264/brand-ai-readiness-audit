@@ -32,12 +32,8 @@ REPORT = {
 
 
 def _plain(**kw) -> tuple[TerminalProgress, io.StringIO]:
-    """A reporter writing to a non-tty buffer, which is the CI/piped case."""
     buf = io.StringIO()
     return TerminalProgress(stream=buf, site="example.com", **kw), buf
-
-
-# --- the no-op reporter must never break a run ----------------------------
 
 
 def test_base_progress_accepts_every_call():
@@ -52,9 +48,6 @@ def test_base_progress_accepts_every_call():
 
 def test_make_progress_returns_a_noop_when_disabled():
     assert type(make_progress(False, "example.com")) is Progress
-
-
-# --- non-tty output must be plain -----------------------------------------
 
 
 def test_no_ansi_escapes_when_not_a_terminal():
@@ -89,9 +82,6 @@ def test_a_closed_stream_does_not_raise():
     reporter.done(REPORT)
 
 
-# --- the summary panel reports the report ---------------------------------
-
-
 def test_summary_shows_counts_scores_and_first_fix():
     text = summarise(REPORT, elapsed=1.5)
     for expected in ("example.com", "CRITICAL 1", "HIGH 1", "MEDIUM 1",
@@ -104,11 +94,7 @@ def test_summary_says_so_when_there_are_no_findings():
     assert "no defects found" in summarise(empty)
 
 
-# --- the contract: stdout stays machine-readable --------------------------
-
-
 def test_progress_never_contaminates_stdout():
-    """stdout is the report. Anything else there breaks `... | jq`."""
     fixture = ROOT / "tests" / "fixtures" / "sites" / "01_excellent"
     server = subprocess.Popen(
         [sys.executable, "-m", "http.server", "8891", "--directory", str(fixture)],

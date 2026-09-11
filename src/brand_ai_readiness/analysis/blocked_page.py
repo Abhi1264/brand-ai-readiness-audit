@@ -1,27 +1,10 @@
-"""Recognise bot-challenge and access-denied pages.
-
-A WAF or CDN that refuses a crawler usually answers with a page rather than a
-bare status: "Access Denied", "Just a moment...", a CAPTCHA, a Ray ID. It is
-HTML, it parses, and every content check will happily analyse it -- reporting a
-missing H1, absent structured data and a weak value proposition for a page the
-brand never served.
-
-Those findings are all false. The real finding is that the origin served a
-challenge, which is a discoverability problem in its own right and the only
-thing that can honestly be said about a site whose content was never seen.
-
-Detection is deliberately conservative: a blocking status alone is not enough,
-because a 403 can be an ordinary permissions error on one URL, and a short page
-alone is not enough, because thin pages exist. A marker plus corroborating
-evidence is required.
-"""
-
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
 
-# Phrases that appear in the title or first heading of a challenge page.
+from brand_ai_readiness.models.snapshot import CrawlSnapshot, FetchedPage
+
 _CHALLENGE_TITLES = re.compile(
     r"\b("
     r"access denied|just a moment|attention required|are you a (?:robot|human)|"
@@ -32,7 +15,6 @@ _CHALLENGE_TITLES = re.compile(
     re.I,
 )
 
-# Vendor markers in the response body.
 _BODY_MARKERS = (
     "cf-browser-verification",
     "challenge-platform",
@@ -48,12 +30,9 @@ _BODY_MARKERS = (
     "ray id",
 )
 
-# Response headers that only appear when an edge decided to intervene.
 _HEADER_MARKERS = ("cf-mitigated", "cf-chl-bypass", "x-datadome", "x-iinfo")
 
 BLOCKING_STATUS = frozenset({401, 403, 405, 406, 429, 503})
-
-# Below this, a page carries no usable content regardless of what it claims.
 _THIN_WORDS = 60
 
 
@@ -76,7 +55,6 @@ def assess_block(
     word_count: int,
     headers: dict[str, str] | None = None,
 ) -> BlockAssessment:
-    """Decide whether a response is a challenge page rather than real content."""
     reasons: list[str] = []
     lowered_html = (html or "").lower()
     haystack = f"{title or ''} {text or ''}".strip()
@@ -100,15 +78,13 @@ def assess_block(
     if blocking_status:
         reasons.append(f"HTTP {status_code}")
 
-    # A marker on its own is enough only when it is vendor-specific. Generic
-    # wording needs a second signal, so an article *about* access denial is not
-    # mistaken for a block.
+    # Vendor markers convict alone. Generic wording needs a second signal.
     strong = bool(header_hit or body_hit)
     corroborated = bool(title_match) and (blocking_status or word_count < _THIN_WORDS)
     return BlockAssessment(is_blocked=strong or corroborated, reasons=reasons)
 
 
-def assess_page(page) -> BlockAssessment:  # noqa: ANN001 - FetchedPage, avoids a cycle
+def assess_page(page: FetchedPage) -> BlockAssessment:
     return assess_block(
         status_code=page.status_code,
         html=page.html,
@@ -119,7 +95,7 @@ def assess_page(page) -> BlockAssessment:  # noqa: ANN001 - FetchedPage, avoids 
     )
 
 
-def blocked_pages(snapshot) -> list[tuple]:  # noqa: ANN001 - CrawlSnapshot
+def blocked_pages(snapshot: CrawlSnapshot) -> list[tuple[FetchedPage, BlockAssessment]]:
     out = []
     for page in snapshot.pages:
         assessment = assess_page(page)
@@ -128,22 +104,7 @@ def blocked_pages(snapshot) -> list[tuple]:  # noqa: ANN001 - CrawlSnapshot
     return out
 
 
-def homepage_is_blocked(snapshot) -> BlockAssessment | None:  # noqa: ANN001
-    home = snapshot.homepage()
-    if home is None:
-        return None
-    assessment = assess_page(home)
-    return assessment if assessment.is_blocked else None
-
-
-def homepage_content_unusable(snapshot) -> str | None:  # noqa: ANN001
-    """Why the homepage's content cannot be analysed, or None if it can.
-
-    A challenge page is one way to receive no content; a 404, an error body or a
-    near-empty response are others. In every case the content skills would be
-    describing something the brand never served, so the distinction that matters
-    is "was real content received", not "why not".
-    """
+def homepage_content_unusable(snapshot: CrawlSnapshot) -> str | None:
     home = snapshot.homepage()
     if home is None:
         return "no homepage was fetched"
@@ -153,6 +114,4 @@ def homepage_content_unusable(snapshot) -> str | None:  # noqa: ANN001
     if home.fetch_status != "success":
         detail = f"HTTP {home.status_code}" if home.status_code else (home.error or "fetch failed")
         return f"the homepage was not fetched successfully ({detail})"
-    # A thin page that WAS served is a real engagement finding, not a reason to
-    # skip the checks -- suppressing it would hide the very defect being audited.
     return None

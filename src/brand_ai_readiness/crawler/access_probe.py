@@ -84,30 +84,22 @@ async def probe_access(
             robots_allows=True,
         )
     ]
-    for agent, user_agent in AI_SEARCH_PROBE_AGENTS.items():
-        jobs.append(
-            _probe_one(
-                client,
-                url,
-                budget,
-                agent,
-                user_agent,
-                bot_class="search",
-                robots_allows=_robots_verdict(agent),
+    for bot_class, agents in (
+        ("search", AI_SEARCH_PROBE_AGENTS),
+        ("training", AI_TRAINING_PROBE_AGENTS),
+    ):
+        for agent, user_agent in agents.items():
+            jobs.append(
+                _probe_one(
+                    client,
+                    url,
+                    budget,
+                    agent,
+                    user_agent,
+                    bot_class=bot_class,
+                    robots_allows=_robots_verdict(agent),
+                )
             )
-        )
-    for agent, user_agent in AI_TRAINING_PROBE_AGENTS.items():
-        jobs.append(
-            _probe_one(
-                client,
-                url,
-                budget,
-                agent,
-                user_agent,
-                bot_class="training",
-                robots_allows=_robots_verdict(agent),
-            )
-        )
 
     results = await asyncio.gather(*jobs, return_exceptions=True)
     probes: list[AccessProbeResult] = []

@@ -8,8 +8,6 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from typing import Any
-
 from brand_ai_readiness.analysis.html import (
     canonical_href,
     extract_links,
@@ -49,6 +47,7 @@ from brand_ai_readiness.models.snapshot import (
     RobotsInfo,
     SitemapInfo,
 )
+from brand_ai_readiness.orchestration.progress import Progress
 
 logger = logging.getLogger(__name__)
 
@@ -66,9 +65,9 @@ class BoundedCrawler:
         self,
         start_url: str,
         budget: AuditBudget | None = None,
-        progress: Any | None = None,
+        progress: Progress | None = None,
     ) -> None:
-        self.progress = progress
+        self.progress = progress or Progress()
         self.start_url = normalize_url(start_url) or start_url
         self.budget = budget or AuditBudget()
         self.origin = origin_of(self.start_url)
@@ -93,13 +92,7 @@ class BoundedCrawler:
         return (urlparse(url).hostname or "").lower() in extras
 
     def _url_family(self, url: str) -> str | None:
-        """Group key for sibling URLs under a deep shared prefix.
-
-        Only paths at least three segments deep have a family: those are facet
-        or filter families ("/jobs/location/warsaw-poland"). Top-level sections
-        like "/products/widget" or a locale prefix like "/en/about" are left
-        uncapped, because those are the pages an audit actually wants.
-        """
+        # Cap only paths ≥3 segments (facet families). /products/widget stays uncapped.
         segments = [segment for segment in (urlparse(url).path or "/").split("/") if segment]
         if len(segments) < 3:
             return None
@@ -252,7 +245,6 @@ class BoundedCrawler:
         )
 
     async def _run_access_probe(self, client: httpx.AsyncClient) -> None:
-        """Measure who the origin actually serves. Never blocks the audit."""
         try:
             self.access_probes = await probe_access(
                 client, self.start_url, self.budget, self.robots_policy
@@ -288,28 +280,24 @@ class BoundedCrawler:
             follow_redirects=True,
             max_redirects=self.budget.max_redirects,
         ) as client:
-            if self.progress:
-                self.progress.phase("robots")
+            self.progress.phase("robots")
             await self._load_robots(client)
-            if self.progress:
-                info = self.robots_policy.info
-                self.progress.detail(
-                    "robots",
-                    ("found" if info.available else "not published")
-                    + (f" · {len(info.sitemaps)} sitemap(s) declared" if info.sitemaps else ""),
-                )
+            info = self.robots_policy.info
+            self.progress.detail(
+                "robots",
+                ("found" if info.available else "not published")
+                + (f" · {len(info.sitemaps)} sitemap(s) declared" if info.sitemaps else ""),
+            )
             if self.budget.enable_access_probe and seed:
-                if self.progress:
-                    self.progress.phase("probe")
+                self.progress.phase("probe")
                 await self._run_access_probe(client)
-                if self.progress:
-                    blocked = [p for p in self.access_probes if p.bot_class == "search" and p.status_code >= 400]
-                    self.progress.detail(
-                        "probe",
-                        f"{self.access_probe_status}"
-                        + (f" · {len(blocked)} search bot(s) blocked" if blocked else ""),
-                    )
-            elif self.progress:
+                blocked = [p for p in self.access_probes if p.bot_class == "search" and p.status_code >= 400]
+                self.progress.detail(
+                    "probe",
+                    f"{self.access_probe_status}"
+                    + (f" · {len(blocked)} search bot(s) blocked" if blocked else ""),
+                )
+            else:
                 self.progress.skip("probe", "disabled")
             if discover_sitemaps:
                 await self._load_sitemaps(client)
@@ -320,8 +308,7 @@ class BoundedCrawler:
                     return await self._fetch_page(client, url)
 
             homepage_links: set[str] = set()
-            if self.progress:
-                self.progress.phase("crawl")
+            self.progress.phase("crawl")
             while self._queue and len(self.pages) < self.budget.max_pages:
                 batch: list[str] = []
                 while self._queue and len(batch) < self.budget.max_concurrency:
@@ -340,8 +327,7 @@ class BoundedCrawler:
                         logger.warning("page worker crashed: %s", result)
                         continue
                     self.pages.append(result)
-                    if self.progress:
-                        self.progress.tick(len(self.pages), len(self._queue))
+                    self.progress.tick(len(self.pages), len(self._queue))
                     if result.fetch_status == "success":
                         is_home = result.role == "homepage" or result.url == self.start_url
                         if is_home:
@@ -375,7 +361,7 @@ class BoundedCrawler:
 
 
 async def crawl_site(
-    start_url: str, budget: AuditBudget | None = None, progress: Any | None = None
+    start_url: str, budget: AuditBudget | None = None, progress: Progress | None = None
 ) -> CrawlSnapshot:
     return await BoundedCrawler(start_url, budget, progress).crawl()
 

@@ -1,18 +1,3 @@
-"""Snippet-suppression directives, from both the HTML and the HTTP response.
-
-Google states that `nosnippet` "will also prevent the content from being used as
-a direct input for AI Overviews and AI Mode", and that `max-snippet` "will also
-limit how much of the content may be used". These are the most direct on-page
-kill switches for AI surfacing that exist, and neither is visible to a checker
-that only reads meta tags: the same directives can arrive in the `X-Robots-Tag`
-response header, where they are invisible to HTML parsing and can contradict
-what the markup says.
-
-`data-nosnippet` is the element-level form. Used on a byline or a price it is
-routine; wrapped around the body of a page it silently removes that page from
-snippet-based surfaces.
-"""
-
 from __future__ import annotations
 
 import re
@@ -49,7 +34,6 @@ class SnippetPolicy:
 
     @property
     def max_snippet_is_limiting(self) -> bool:
-        # -1 means "no limit" and is the documented default-equivalent.
         if self.max_snippet is None or self.max_snippet < 0:
             return False
         return self.max_snippet <= LOW_MAX_SNIPPET_CHARS
@@ -75,7 +59,6 @@ def _max_snippet_from(*values: str | None) -> int | None:
                 continue
     if not found:
         return None
-    # A negative value anywhere means unlimited; otherwise the tightest wins.
     if any(item < 0 for item in found):
         return -1
     return min(found)

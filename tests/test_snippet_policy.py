@@ -24,16 +24,12 @@ def _codes(pages):
     return {f.mechanism_code for f in crawl_findings(snapshot_from_pages(pages, start_url=HOME))}
 
 
-# --- directive parsing ----------------------------------------------------
-
-
 def test_nosnippet_detected_in_meta():
     policy = analyze_snippet_policy(HOME, '<meta name="robots" content="nosnippet">', {}, "nosnippet")
     assert policy.nosnippet and "meta robots" in policy.sources
 
 
 def test_nosnippet_detected_in_header_only():
-    """The case an HTML-only auditor cannot see at all."""
     policy = analyze_snippet_policy(HOME, "<html></html>", {"x-robots-tag": "nosnippet"}, None)
     assert policy.nosnippet
     assert "X-Robots-Tag header" in policy.sources
@@ -45,7 +41,6 @@ def test_header_name_is_matched_case_insensitively():
 
 
 def test_unlimited_max_snippet_is_not_a_limit():
-    """max-snippet:-1 means no limit and must never be reported."""
     policy = analyze_snippet_policy(HOME, "<html></html>", {}, "max-snippet:-1")
     assert policy.max_snippet == -1
     assert not policy.max_snippet_is_limiting
@@ -74,11 +69,7 @@ def test_header_only_noindex_is_distinguished_from_declared_noindex():
     assert not declared.header_only_noindex
 
 
-# --- data-nosnippet -------------------------------------------------------
-
-
 def test_targeted_data_nosnippet_is_not_flagged():
-    """Wrapping a byline or a price is routine practice."""
     html = BODY.format(meta="", extra='<span data-nosnippet>By A. Reporter</span>')
     policy = analyze_snippet_policy(HOME, html, {}, None)
     assert policy.data_nosnippet_chars > 0
@@ -94,9 +85,6 @@ def test_data_nosnippet_over_the_body_is_flagged():
     )
     policy = analyze_snippet_policy(HOME, html, {}, None)
     assert policy.data_nosnippet_dominant
-
-
-# --- findings and their guards --------------------------------------------
 
 
 def test_clean_page_produces_no_snippet_findings():
@@ -121,7 +109,6 @@ def test_header_only_directives_raise_findings():
 
 
 def test_legal_and_account_pages_are_not_content_roles():
-    """nosnippet on a terms page is ordinary practice, not a discoverability defect."""
     codes = _codes([_page(role="legal", meta='<meta name="robots" content="nosnippet">')])
     assert "nosnippet_suppresses_ai" not in codes
 
@@ -130,15 +117,7 @@ def test_unlimited_max_snippet_produces_no_finding():
     assert "max_snippet_limits_ai" not in _codes([_page(meta='<meta name="robots" content="max-snippet:-1">')])
 
 
-# --- evidence rendering ----------------------------------------------------
-
-
 def test_evidence_never_renders_a_python_repr():
-    """Metrics become a sentence a non-expert reads; a repr leaks implementation.
-
-    The render-gap finding reports its examples as a list of dicts, which is how
-    a raw repr reached the evidence string.
-    """
     from brand_ai_readiness.models.evidence import EvidencePayload
 
     text = EvidencePayload(

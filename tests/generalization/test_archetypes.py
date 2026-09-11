@@ -1,24 +1,3 @@
-"""Does the audit behave sensibly across kinds of site it has never seen?
-
-The rubric is explicit that no example sites are provided and that generalization
-is tested by construction. Every other test here is organised by module, which
-checks that a given function works. These are organised by *site archetype*, and
-check something different: that the same checks stay correct when the kind of
-site changes.
-
-The fixtures are deliberately healthy examples of their type. On a healthy site,
-a high or critical finding is a false positive by definition, which is what makes
-this a false-positive suite rather than a detection suite.
-
-Both bugs this file was written to catch were real:
-
-* a site publishing LocalBusiness markup was told to add Organization, though
-  LocalBusiness is a schema.org subtype of Organization;
-* a documentation homepage stating "Lumen SDK streams telemetry from embedded
-  devices" was reported, at high severity, as having no identity statement,
-  because identity was only recognised in "we build X" phrasing.
-"""
-
 from __future__ import annotations
 
 import pytest
@@ -27,7 +6,7 @@ from brand_ai_readiness.analysis.site_type import expected_schema_types
 from brand_ai_readiness.orchestration.compose import report_from_snapshot
 from tests.helpers import snapshot_from_site_dir
 
-# fixture directory -> the site type a reader would call it
+# fixture directory -> inferred site type
 ARCHETYPES = {
     "arch_ecommerce": "ecommerce",
     "arch_blog": "article",
@@ -55,14 +34,12 @@ def test_site_type_is_inferred_correctly(directory: str, expected: str):
 
 @pytest.mark.parametrize("directory", ARCHETYPES)
 def test_a_healthy_site_raises_nothing_severe(directory: str):
-    """Low-severity nudges are fine on a good site. High and critical are not."""
     severe = [f for f in _report(directory).findings if f.severity in {"critical", "high"}]
     assert not severe, [f"{f.severity}: {f.title}" for f in severe]
 
 
 @pytest.mark.parametrize("directory", ARCHETYPES)
 def test_no_markup_is_demanded_that_the_archetype_does_not_need(directory: str):
-    """The site-type bug in the wild recommended LocalBusiness JSON-LD to python.org."""
     report = _report(directory)
     text = " ".join(
         f.title + " " + (f.suggested_action.summary or "") for f in report.findings
@@ -86,25 +63,21 @@ def test_expected_schema_matches_the_archetype(directory: str, expected: str):
 
 
 def test_local_business_markup_satisfies_the_organization_requirement():
-    """LocalBusiness IS an Organization in schema.org; demanding both is wrong."""
     codes = {f.mechanism_code for f in _report("arch_local").findings}
     assert "missing_organization" not in codes
 
 
 def test_identity_is_recognised_when_the_brand_is_the_subject():
-    """"Lumen SDK streams telemetry..." states identity as plainly as "we build...".."""
     codes = {f.mechanism_code for f in _report("arch_docs").findings}
     assert "weak_homepage_orientation" not in codes
 
 
 def test_the_auditor_discriminates_between_archetypes():
-    """A check firing identically everywhere would be noise, not detection."""
     inferred = {d: _report(d).site_type for d in ARCHETYPES}
     assert len(set(inferred.values())) == len(ARCHETYPES), inferred
 
 
 def test_defective_sites_are_still_caught():
-    """The counterweight: none of the above may come from suppressing detection."""
     broken = _report("04_missing_structured")
     assert any(f.severity in {"critical", "high"} for f in broken.findings)
     thin = _report("10_strong_disco_weak_engagement")
