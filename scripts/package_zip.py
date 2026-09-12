@@ -19,9 +19,9 @@ INCLUDE = frozenset({
     "src",
     "examples",
     "tests",
-    "scripts",
     "pyproject.toml",
     "requirements.txt",
+    "report.json",
 })
 EXCLUDE = frozenset({
     "design-system",
